@@ -218,7 +218,6 @@ PartiallyFixedModelBuilder<Representer>::BuildNewModelFromModel(
 		pt_no++;
 	}
 
-
 	BuilderInfo builderInfo("PartiallyFixedModelBuilder", di, bi);
 	builderInfoList.push_back(builderInfo);
 
