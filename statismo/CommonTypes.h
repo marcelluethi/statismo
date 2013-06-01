@@ -57,21 +57,23 @@ const double PI	=	3.14159265358979323846;
 /// the type that is used for all vector and matrices throughout the library.
 typedef float ScalarType;
 
-/// Vector type used throughout the library
-typedef Eigen::Matrix<ScalarType, Eigen::Dynamic, 1> VectorType;
-typedef Eigen::Matrix<double, Eigen::Dynamic, 1> VectorTypeDoublePrecision;
-typedef Eigen::Matrix<ScalarType, 1 , Eigen::Dynamic> RowVectorType;
+// wrapper struct that allows us to easily select matrix and vectors of an arbitrary
+// type, wich has the same traits as the standard matrix / vector traits
+template <typename ScalarType> struct GenericEigenType {
+	typedef Eigen::Matrix<ScalarType, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> MatrixType;
+	typedef Eigen::DiagonalMatrix<ScalarType, Eigen::Dynamic> DiagMatrixType;
+	typedef Eigen::Matrix<ScalarType, Eigen::Dynamic, 1> VectorType;
+	typedef Eigen::Matrix<ScalarType, 1 , Eigen::Dynamic> RowVectorType;
 
-/// Matrix type used throughout the library
-/// Having RowMajor storage is important, as we want to be able to efficiently copy data to HDF5
-/// and vnl, which are both storing the data as rowMajor
-typedef Eigen::Matrix<ScalarType, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> MatrixType;
-typedef Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> MatrixTypeDoublePrecision;
-
-/// Diagonal matrix type used throughout the library
-typedef Eigen::DiagonalMatrix<ScalarType, Eigen::Dynamic> DiagMatrixType;
-typedef Eigen::DiagonalMatrix<double, Eigen::Dynamic> DiagMatrixTypeDoublePrecision;
+};
+typedef GenericEigenType<ScalarType>::MatrixType MatrixType;
+typedef GenericEigenType<double>::MatrixType MatrixTypeDoublePrecision;
+typedef GenericEigenType<ScalarType>::DiagMatrixType DiagMatrixType;
+typedef GenericEigenType<ScalarType>::VectorType VectorType;
+typedef GenericEigenType<double>::VectorType VectorTypeDoublePrecision;
+typedef GenericEigenType<ScalarType>::RowVectorType RowVectorType;
 
 } //namespace statismo
 
 #endif
+
