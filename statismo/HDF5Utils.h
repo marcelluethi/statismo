@@ -91,6 +91,14 @@ public:
 	 */
 	static void readMatrix(const H5::CommonFG& fg, const char* name, unsigned nCols, MatrixType& matrix);
 
+	/**
+	 * Read a Matrix of a given type from a HDF5 File
+	 * @param fg The group
+	 * @param name the name of the entry
+	 * @param the output matrix
+	 */
+	template <class T>
+	static void readMatrixOfType(const H5::CommonFG& fg, const char* name, typename GenericEigenType<T>::MatrixType& matrix);
 
 	/**
 	 * Write a Matrix to the HDF5 File
@@ -99,6 +107,16 @@ public:
 	 * @param the matrix to be written
 	 */
 	static void writeMatrix(const H5::CommonFG& fg, const char* name, const MatrixType& matrix);
+
+	 /**
+	 * Write a Matrix of the given type to the HDF5 File
+	 * @param fg The group
+	 * @param name the name of the entry
+	 * @param the matrix to be written
+	 */
+	template <class T>
+	static void writeMatrixOfType(const H5::CommonFG& fg, const char* name, const typename GenericEigenType<T>::MatrixType& matrix);
+
 
 	/**
 	 * Read a Vector from a HDF5 File with the given number of elements
@@ -214,6 +232,7 @@ public:
 	 */
   template<typename T>
 	static void writeArray(const H5::CommonFG& fg, const char* name, std::vector<T> const& array );
+
 
 	/** Check whether an object (direct child) of fg with the given name exists
 	 */
