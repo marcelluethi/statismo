@@ -539,11 +539,16 @@ StatisticalModel<Representer>::Load(const H5::Group& modelRoot, unsigned maxNumb
 
 	try {
 		Group representerGroup = modelRoot.openGroup("./representer");
+
+		// TODO in a future version, there needs to be a mechanism, supported by the representers,
+		// which allows to check if the representers are compatible. Requiring such a
+		// check now would break the representer interface, which is why it is postponed.
+#ifndef DISABLE_REPRESENTER_CHECK
 		std::string rep_name = HDF5Utils::readStringAttribute(representerGroup, "name");
 		if (rep_name != Representer::GetName() && Representer::GetName() != "TrivialVectorialRepresenter") {
 			throw StatisticalModelException("A different representer was used to create the file. Cannot load hdf5 file.");
 		}
-
+#endif
 		newModel = new StatisticalModel(Representer::Load(representerGroup));
 		representerGroup.close();
 
