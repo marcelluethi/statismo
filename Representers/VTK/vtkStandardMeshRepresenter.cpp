@@ -146,32 +146,35 @@ vtkStandardMeshRepresenter::Load(const H5::CommonFG& fg) {
 
 	// read the point and cell data
 	assert(ref->GetPointData() != 0);
-	H5::Group pdGroup = fg.openGroup("./pointData");
-	if (HDF5Utils::existsObjectWithName(pdGroup, "scalars")) {
-		ref->GetPointData()->SetScalars(GetAsDataArray(pdGroup, "scalars"));
+	if (HDF5Utils::existsObjectWithName(fg, "pointData")) {
+		H5::Group pdGroup = fg.openGroup("./pointData");
+		if (HDF5Utils::existsObjectWithName(pdGroup, "scalars")) {
+			ref->GetPointData()->SetScalars(GetAsDataArray(pdGroup, "scalars"));
+		}
+		if (HDF5Utils::existsObjectWithName(pdGroup, "vectors")) {
+			ref->GetPointData()->SetVectors(GetAsDataArray(pdGroup, "vectors"));
+		}
+		if (HDF5Utils::existsObjectWithName(pdGroup, "normals")) {
+			ref->GetPointData()->SetNormals(GetAsDataArray(pdGroup, "normals"));
+		}
+		pdGroup.close();
 	}
-	if (HDF5Utils::existsObjectWithName(pdGroup, "vectors")) {
-		ref->GetPointData()->SetVectors(GetAsDataArray(pdGroup, "vectors"));
-	}
-	if (HDF5Utils::existsObjectWithName(pdGroup, "normals")) {
-		ref->GetPointData()->SetNormals(GetAsDataArray(pdGroup, "normals"));
-	}
-	pdGroup.close();
 
-	H5::Group cdGroup = fg.openGroup("./cellData");
-	assert(ref->GetCellData() != 0);
+	if (HDF5Utils::existsObjectWithName(fg, "cellData")) {
+		H5::Group cdGroup = fg.openGroup("./cellData");
+		assert(ref->GetCellData() != 0);
 
-	if (HDF5Utils::existsObjectWithName(pdGroup, "scalars")) {
-		ref->GetPointData()->SetScalars(GetAsDataArray(cdGroup, "scalars"));
+		if (HDF5Utils::existsObjectWithName(cdGroup, "scalars")) {
+			ref->GetPointData()->SetScalars(GetAsDataArray(cdGroup, "scalars"));
+		}
+		if (HDF5Utils::existsObjectWithName(cdGroup, "vectors")) {
+			ref->GetPointData()->SetVectors(GetAsDataArray(cdGroup, "vectors"));
+		}
+		if (HDF5Utils::existsObjectWithName(cdGroup, "normals")) {
+			ref->GetPointData()->SetNormals(GetAsDataArray(cdGroup, "normals"));
+		}
+		cdGroup.close();
 	}
-	if (HDF5Utils::existsObjectWithName(pdGroup, "vectors")) {
-		ref->GetPointData()->SetVectors(GetAsDataArray(cdGroup, "vectors"));
-	}
-	if (HDF5Utils::existsObjectWithName(pdGroup, "normals")) {
-		ref->GetPointData()->SetNormals(GetAsDataArray(cdGroup, "normals"));
-	}
-	cdGroup.close();
-
 	return vtkStandardMeshRepresenter::Create(ref);
 }
 
