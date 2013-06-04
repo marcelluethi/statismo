@@ -73,6 +73,21 @@ typedef GenericEigenType<ScalarType>::VectorType VectorType;
 typedef GenericEigenType<double>::VectorType VectorTypeDoublePrecision;
 typedef GenericEigenType<ScalarType>::RowVectorType RowVectorType;
 
+// type definitions used in the standard file format.
+// Note that these are the same as used by VTK
+const static unsigned VOID = 0;
+const static unsigned BIT = 1;
+const static unsigned SIGNED_CHAR  = 15;
+const static unsigned UNSIGNED_CHAR  = 3;
+const static unsigned  SIGNED_SHORT     =  4;
+const static unsigned UNSIGNED_SHORT = 5;
+const static unsigned SIGNED_INT             = 6;
+const static unsigned UNSIGNED_INT   = 7;
+const static unsigned  SIGNED_LONG          =  8;
+const static unsigned  UNSIGNED_LONG  = 9;
+const static unsigned FLOAT =         10;
+const static unsigned DOUBLE      =   11;
+
 } //namespace statismo
 
 #endif
