@@ -138,6 +138,8 @@ public:
 	 */
 	static void readVector(const H5::CommonFG& fg, const char* name, VectorType& vector);
 
+	template <class T>
+	static void readVectorOfType(const H5::CommonFG& fg, const char* name, typename GenericEigenType<T>::VectorType& vector);
 
 	/**
 	 * Write a vector to the HDF5 File
@@ -146,6 +148,10 @@ public:
 	 * @param the vector to be written
 	 */
 	static H5::DataSet writeVector(const H5::CommonFG& fg, const char* name, const VectorType& vector);
+
+	template <class T>
+	static H5::DataSet writeVectorOfType(const H5::CommonFG& fg, const char* name, const typename GenericEigenType<T>::VectorType& vector);
+
 
 	/**
 	 * Reads a file (in binary mode) and saves it as a byte array in the hdf5 file.
