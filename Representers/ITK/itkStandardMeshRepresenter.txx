@@ -138,6 +138,32 @@ StandardMeshRepresenter<TPixel, MeshDimension>::Load(const H5::CommonFG& fg) {
 		mesh->SetCell( i, cell );
 	}
 
+	// currently this representer supports only pointdata of type scalar
+	if (HDF5Utils::existsObjectWithName(fg, "pointData")) {
+		H5::Group pdGroup = fg.openGroup("./pointData");
+
+		if (HDF5Utils::existsObjectWithName(pdGroup, "scalars")) {
+			H5::DataSet ds = pdGroup.openDataSet("scalars");
+			int type = HDF5Utils::readIntAttribute(ds, "datatype");
+			if (type != PixelConversionTrait<TPixel>::GetDataType()) {
+				std::cout << "Warning: The datatype specified for the scalars does not match the TPixel template argument used in this representer." << std::endl;
+			}
+			DoubleMatrixType m;
+			HDF5Utils::readMatrixOfType<double>(pdGroup, "scalars", m);
+			assert(m.cols() == mesh->GetNumberOfPoints());
+			typename MeshType::PointDataContainerPointer pd = MeshType::PointDataContainer::New();
+
+			for (unsigned i = 0; i < m.cols(); i++) {
+				TPixel v = PixelConversionTrait<TPixel>::FromVector(m.col(i));
+				pd->InsertElement(i, v);
+			}
+			mesh->SetPointData(pd);
+		}
+
+		pdGroup.close();
+	}
+
+
 	newInstance->SetReference(mesh);
 	return newInstance;
 }
@@ -296,6 +322,20 @@ StandardMeshRepresenter<TPixel, MeshDimension>::Save(const H5::CommonFG& fg) con
 		}
 	}
 
+	H5::Group pdGroup = fg.createGroup("pointData");
+
+	typename MeshType::PointDataContainerPointer pd = m_reference->GetPointData();
+	if (pd) {
+		unsigned numComponents = PixelConversionTrait<TPixel>::ToVector(pd->GetElement(0)).rows();
+
+		DoubleMatrixType scalarsMat = DoubleMatrixType::Zero(numComponents, m_reference->GetNumberOfPoints());
+		for (unsigned i = 0; i < m_reference->GetNumberOfPoints(); i++) {
+			scalarsMat.col(i) = PixelConversionTrait<TPixel>::ToVector(pd->GetElement(i));
+		}
+		H5::DataSet ds = HDF5Utils::writeMatrixOfType<double>(pdGroup, "scalars", scalarsMat);
+		HDF5Utils::writeIntAttribute(ds, "datatype", PixelConversionTrait<TPixel>::GetDataType());
+	}
+
 
 	HDF5Utils::writeMatrixOfType<unsigned int>(fg, "./cells", facesMat);
 }
@@ -326,35 +366,6 @@ StandardMeshRepresenter<TPixel, MeshDimension>::GetPointIdForPoint(const PointTy
 	return static_cast<unsigned>(ptId);
 }
 
-
-template <class TPixel, unsigned MeshDimension>
-typename StandardMeshRepresenter<TPixel, MeshDimension>::DatasetPointerType
-StandardMeshRepresenter<TPixel, MeshDimension>::ReadDataset(const char* filename) {
-    typename itk::MeshFileReader<MeshType>::Pointer reader = itk::MeshFileReader<MeshType>::New();
-    reader->SetFileName(filename);
-    try {
-        reader->Update();
-    }
-    catch (itk::MeshFileReaderException& e) {
-        throw StatisticalModelException((std::string("Could not read file ") + filename).c_str());
-    }
-
-    return reader->GetOutput();
-}
-
-template <class TPixel, unsigned MeshDimension>
-void StandardMeshRepresenter<TPixel, MeshDimension>::WriteDataset(const char* filename, const MeshType* mesh) {
-    typename itk::MeshFileWriter<MeshType>::Pointer writer =itk::MeshFileWriter<MeshType>::New();
-    writer->SetFileName(filename);
-    writer->SetInput(mesh);
-    try {
-		writer->Update();
-    }
-    catch (itk::MeshFileWriterException& e) {
-        throw StatisticalModelException((std::string("Could not write file ") + filename).c_str());
-    }
-
-}
 
 
 template <class TPixel, unsigned MeshDimension>

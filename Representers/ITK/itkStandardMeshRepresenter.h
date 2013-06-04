@@ -45,7 +45,9 @@
 #include "itkMesh.h"
 #include "statismo_ITK/statismoITKConfig.h"
 #include "statismo/CommonTypes.h"
+#include "statismo/Exceptions.h"
 #include <boost/unordered_map.hpp>
+#include "itkPixelConversionTraits.h"
 
 namespace itk {
 
@@ -57,6 +59,10 @@ int hash_value(const PointType& pt) {
 		hash_val *= pt[i];
 	return hash_val;
 }
+
+
+
+
 
 
 /**
@@ -194,7 +200,10 @@ private:
 	mutable PointCacheType m_pointCache;
 };
 
+
 } // namespace itk
+
+
 
 #include "itkStandardMeshRepresenter.txx"
 
