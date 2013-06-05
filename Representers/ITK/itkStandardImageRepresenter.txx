@@ -1,4 +1,4 @@
-/*
+ /*
  * This file is part of the statismo library.
  *
  * Author: Marcel Luethi (marcel.luethi@unibas.ch)
@@ -91,6 +91,17 @@ StandardImageRepresenter<TPixel, ImageDimension>::Load(const H5::CommonFG& fg) {
 
 	StandardImageRepresenter* newInstance = new StandardImageRepresenter();
 	newInstance->Register();
+
+
+	int readImageDimension = HDF5Utils::readInt(fg, "imageDimension");
+	int readPixelDimension = HDF5Utils::readInt(fg, "pixelDimension");
+	if (readImageDimension != ImageDimension)  {
+		throw statismo::StatisticalModelException("the image dimension specified in the statismo file does not match the one specified as template parameter");
+	}
+	if (readPixelDimension != GetDimensions())  {
+		throw statismo::StatisticalModelException("the pixel dimension specified in the statismo file does not match the one specified as template parameter");
+	}
+
 
 	statismo::VectorType originVec;
 	HDF5Utils::readVector(fg, "origin", originVec);
@@ -283,8 +294,8 @@ StandardImageRepresenter<TPixel, ImageDimension>::Save(const H5::CommonFG& fg) c
 	using namespace H5;
 
 	typename ImageType::PointType origin = m_reference->GetOrigin();
-	statismo::VectorType originVec(GetDimensions());
-	for (unsigned i = 0; i < GetDimensions(); i++) {
+	statismo::VectorType originVec(ImageDimension);
+	for (unsigned i = 0; i < ImageDimension; i++) {
 		originVec(i) = origin[i];
 	}
 	HDF5Utils::writeVector(fg, "origin", originVec);
@@ -298,7 +309,7 @@ StandardImageRepresenter<TPixel, ImageDimension>::Save(const H5::CommonFG& fg) c
 
 
 	statismo::GenericEigenType<int>::VectorType sizeVec(ImageDimension);
-	for (unsigned i = 0; i < GetDimensions(); i++) {
+	for (unsigned i = 0; i < ImageDimension; i++) {
 		sizeVec(i) = m_reference->GetLargestPossibleRegion().GetSize()[i];
 	}
 	HDF5Utils::writeVectorOfType<int>(fg, "size", sizeVec);
@@ -312,6 +323,8 @@ StandardImageRepresenter<TPixel, ImageDimension>::Save(const H5::CommonFG& fg) c
 	}
 	HDF5Utils::writeMatrix(fg, "direction", directionMat);
 
+	HDF5Utils::writeInt(fg, "imageDimension", ImageDimension);
+	HDF5Utils::writeInt(fg, "pixelDimension", GetDimensions());
 
 	typedef statismo::GenericEigenType<double>::MatrixType DoubleMatrixType;
 	DoubleMatrixType pixelMat(GetDimensions(), GetNumberOfPoints());
