@@ -77,8 +77,7 @@ typedef GenericEigenType<ScalarType>::RowVectorType RowVectorType;
 // type definitions used in the standard file format.
 // Note that these are the same as used by VTK
 const static unsigned VOID = 0;
-const static unsigned BIT = 1;
-const static unsigned SIGNED_CHAR  = 15;
+const static unsigned SIGNED_CHAR = 2;
 const static unsigned UNSIGNED_CHAR  = 3;
 const static unsigned  SIGNED_SHORT     =  4;
 const static unsigned UNSIGNED_SHORT = 5;

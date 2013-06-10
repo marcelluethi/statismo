@@ -376,38 +376,36 @@ vtkDataArray* vtkStandardMeshRepresenter::GetAsDataArray(const H5::Group& group,
 	H5::DataSet matrixDs = group.openDataSet(name.c_str());
 	int type = HDF5Utils::readIntAttribute(matrixDs, "datatype");
 
-	// statismo uses the vtk datatypes
-	//VTK_BIT, VTK_CHAR, VTK_SIGNED_CHAR, VTK_UNSIGNED_CHAR, VTK_SHORT, VTK_UNSIGNED_SHORT, VTK_INT, VTK_UNSIGNED_INT, VTK_LONG, VTK_UNSIGNED_LONG, VTK_DOUBLE, VTK_DOUBLE, VTK_ID_TYPE
 	switch(type) {
-	case VTK_UNSIGNED_CHAR:
+	case statismo::UNSIGNED_CHAR:
 		dataArray = vtkUnsignedCharArray::New();
 		break;
-	case VTK_CHAR:
+	case statismo::SIGNED_CHAR:
 		dataArray = vtkCharArray::New();
 		break;
-	case VTK_FLOAT:
+	case statismo::FLOAT:
 		dataArray = vtkFloatArray::New();
 		break;
-	case VTK_DOUBLE:
+	case statismo::DOUBLE:
 		dataArray = vtkDoubleArray::New();
 		break;
-	case VTK_UNSIGNED_INT:
+	case statismo::UNSIGNED_INT:
 		dataArray = vtkUnsignedIntArray::New();
 		break;
-	case VTK_INT:
+	case statismo::SIGNED_INT:
 		dataArray = vtkIntArray::New();
 		break;
-	case VTK_UNSIGNED_SHORT:
+	case statismo::UNSIGNED_SHORT:
 		dataArray = vtkUnsignedShortArray::New();
 		break;
-	case VTK_SHORT:
+	case statismo::SIGNED_SHORT:
 		dataArray = vtkShortArray::New();
 		break;
-	case VTK_UNSIGNED_LONG:
-		dataArray = vtkCharArray::New();
+	case statismo::UNSIGNED_LONG:
+		dataArray = vtkLongArray::New();
 		break;
-	case VTK_LONG:
-		dataArray = vtkCharArray::New();
+	case statismo::SIGNED_LONG:
+		dataArray = vtkUnsignedLongArray::New();
 		break;
 	default:
 		throw StatisticalModelException("Unsupported data type for dataArray in vtkStandardMeshRepresenter::GetAsDataArray.");
@@ -448,7 +446,9 @@ void vtkStandardMeshRepresenter::WriteDataArray(const H5::CommonFG& group,  cons
 		}
 	}
 	const H5::DataSet ds = HDF5Utils::writeMatrixOfType<double>(group, name.c_str(), m);
-	HDF5Utils::writeIntAttribute(ds, "datatype", dataArray->GetDataType());
+
+	int statismoDataTypeId = vtkHelper::vtkDataTypeIdToStatismoDataTypeId(dataArray->GetDataType());
+	HDF5Utils::writeIntAttribute(ds, "datatype", statismoDataTypeId);
 
 }
 
