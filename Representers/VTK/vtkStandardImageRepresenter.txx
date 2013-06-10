@@ -122,14 +122,18 @@ vtkStandardImageRepresenter<TScalar, PixelDimensions>::Load(const H5::CommonFG& 
 		size[i] = sizeVec[i];
 	}
 
+	H5::Group pdGroup = fg.openGroup("./pointData");
+	int readPixelDimension = HDF5Utils::readInt(pdGroup, "pixelDimension");
+
 	typename statismo::GenericEigenType<double>::MatrixType pixelMat;
-	HDF5Utils::readMatrixOfType<double>(fg, "pixelValues", pixelMat);
-	H5::DataSet ds = fg.openDataSet("pixelValues");
+	HDF5Utils::readMatrixOfType<double>(pdGroup, "pixelValues", pixelMat);
+	H5::DataSet ds = pdGroup.openDataSet("pixelValues");
 	int datatype = HDF5Utils::readIntAttribute(ds, "datatype");
 
 	if (statismo::GetDataTypeId<TScalar>() != datatype) {
 		std::cout << "Warning: The datatype specified for the scalars does not match the TPixel template argument used in this representer." << std::endl;
 	}
+	pdGroup.close();
 
 	vtkStructuredPoints* newImage = vtkStructuredPoints::New();
 	newImage->SetDimensions(size[0], size[1], size[2]);
@@ -315,8 +319,6 @@ vtkStandardImageRepresenter<TScalar, Dimensions>::Save(const H5::CommonFG& fg) c
 	else imageDimension = 3;
 
 	HDF5Utils::writeInt(fg, "imageDimension", imageDimension);
-	HDF5Utils::writeInt(fg, "pixelDimension", GetDimensions());
-
 
 	double* origin = m_reference->GetOrigin();
 	statismo::VectorType originVec = statismo::VectorType::Zero(imageDimension);
@@ -357,9 +359,13 @@ vtkStandardImageRepresenter<TScalar, Dimensions>::Save(const H5::CommonFG& fg) c
 			}
 		}
 	}
-	H5::DataSet ds = HDF5Utils::writeMatrixOfType<double>(fg, "pixelValues", pixelMat);
-	HDF5Utils::writeIntAttribute(ds, "datatype", statismo::GetDataTypeId<TScalar>());
 
+	H5::Group pdGroup = fg.createGroup("pointData");
+	HDF5Utils::writeInt(pdGroup, "pixelDimension", GetDimensions());
+
+	H5::DataSet ds = HDF5Utils::writeMatrixOfType<double>(pdGroup, "pixelValues", pixelMat);
+	HDF5Utils::writeIntAttribute(ds, "datatype", statismo::GetDataTypeId<TScalar>());
+	pdGroup.close();
 
 }
 

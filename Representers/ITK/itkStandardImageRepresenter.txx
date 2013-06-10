@@ -94,12 +94,8 @@ StandardImageRepresenter<TPixel, ImageDimension>::Load(const H5::CommonFG& fg) {
 
 
 	int readImageDimension = HDF5Utils::readInt(fg, "imageDimension");
-	int readPixelDimension = HDF5Utils::readInt(fg, "pixelDimension");
 	if (readImageDimension != ImageDimension)  {
 		throw statismo::StatisticalModelException("the image dimension specified in the statismo file does not match the one specified as template parameter");
-	}
-	if (readPixelDimension != GetDimensions())  {
-		throw statismo::StatisticalModelException("the pixel dimension specified in the statismo file does not match the one specified as template parameter");
 	}
 
 
@@ -133,19 +129,25 @@ StandardImageRepresenter<TPixel, ImageDimension>::Load(const H5::CommonFG& fg) {
 		}
 	}
 
+	H5::Group pdGroup = fg.openGroup("./pointData");
+	int readPixelDimension = HDF5Utils::readInt(pdGroup, "pixelDimension");
+	if (readPixelDimension != GetDimensions())  {
+		throw statismo::StatisticalModelException("the pixel dimension specified in the statismo file does not match the one specified as template parameter");
+	}
 
 	typename statismo::GenericEigenType<double>::MatrixType pixelMat;
-	HDF5Utils::readMatrixOfType<double>(fg, "pixelValues", pixelMat);
+	HDF5Utils::readMatrixOfType<double>(pdGroup, "pixelValues", pixelMat);
 	typename ImageType::Pointer newImage = ImageType::New();
 	typename ImageType::IndexType start;
 	start.Fill(0);
 
-	H5::DataSet ds = fg.openDataSet("pixelValues");
+
+	H5::DataSet ds = pdGroup.openDataSet("pixelValues");
 	int type = HDF5Utils::readIntAttribute(ds, "datatype");
 	if (type != PixelConversionTrait<TPixel>::GetDataType()) {
 		std::cout << "Warning: The datatype specified for the scalars does not match the TPixel template argument used in this representer." << std::endl;
 	}
-
+	pdGroup.close();
 	typename ImageType::RegionType region(start, size);
 	newImage->SetRegions(region);
 	newImage->Allocate();
@@ -324,7 +326,10 @@ StandardImageRepresenter<TPixel, ImageDimension>::Save(const H5::CommonFG& fg) c
 	HDF5Utils::writeMatrix(fg, "direction", directionMat);
 
 	HDF5Utils::writeInt(fg, "imageDimension", ImageDimension);
-	HDF5Utils::writeInt(fg, "pixelDimension", GetDimensions());
+
+	H5::Group pdGroup = fg.createGroup("pointData");
+	HDF5Utils::writeInt(pdGroup, "pixelDimension", GetDimensions());
+
 
 	typedef statismo::GenericEigenType<double>::MatrixType DoubleMatrixType;
 	DoubleMatrixType pixelMat(GetDimensions(), GetNumberOfPoints());
@@ -338,9 +343,9 @@ StandardImageRepresenter<TPixel, ImageDimension>::Save(const H5::CommonFG& fg) c
 		pixelMat.col(i) = PixelConversionTrait<TPixel>::ToVector(it.Get());
 		++it;
 	}
-	H5::DataSet ds = HDF5Utils::writeMatrixOfType<double>(fg, "pixelValues", pixelMat);
+	H5::DataSet ds = HDF5Utils::writeMatrixOfType<double>(pdGroup, "pixelValues", pixelMat);
 	HDF5Utils::writeIntAttribute(ds, "datatype", PixelConversionTrait<TPixel>::GetDataType());
-
+	pdGroup.close();
 }
 
 
