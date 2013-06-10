@@ -43,7 +43,7 @@
 #include "vtkLandmarkTransform.h"
 #include "vtkTransform.h"
 #include "vtkTransformPolyDataFilter.h"
-#include "vtkPoint.h"
+#include "vtkHelper.h"
 #include "statismo/CommonTypes.h"
 #include "statismo/Domain.h"
 #include "vtkSmartPointer.h"

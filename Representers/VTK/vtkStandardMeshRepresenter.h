@@ -40,7 +40,7 @@
 #define VTK_STANDARD_MESH_REPRESENTER_H_
 
 #include "vtkPolyData.h"
-#include "vtkPoint.h"
+#include "vtkHelper.h"
 #include "statismo/CommonTypes.h"
 #include "statismo/Domain.h"
 #include "vtkSmartPointer.h"

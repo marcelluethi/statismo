@@ -42,8 +42,7 @@
 
 
 #include "vtkStructuredPoints.h"
-#include "vtkPoint.h"
-#include "vtkPixel.h"
+#include "vtkHelper.h"
 #include "statismo/CommonTypes.h"
 #include "statismo/Domain.h"
 #include "vtkSmartPointer.h"
