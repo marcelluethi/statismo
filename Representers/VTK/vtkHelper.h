@@ -35,13 +35,15 @@
  *
  */
 
+#ifndef __VTK_HELPER_H
+#define __VTK_HELPER_H
 
-#ifndef VTKPIXEL_H
-#define VTKPIXEL_H
 
 #include <iostream>
 #include <sstream>
 #include "statismo/Exceptions.h"
+#include "statismo/CommonTypes.h"
+
 
 using statismo::StatisticalModelException;
 
@@ -107,4 +109,91 @@ private:
 
 
 
-#endif
+/**
+ * \brief Helper class that represents a vtkPoint.
+ * In vtk a point is just of type  T*. The statismo library relies on a proper
+ * copy semantics, and hence requires such a wrapper..
+ */
+
+class vtkPoint {
+public:
+	vtkPoint() {
+		m_pt[0]  = 0;
+		m_pt[1] = 0;
+		m_pt[2] = 0;
+	}
+
+	vtkPoint(double x, double y, double z)
+	{m_pt[0] = x; m_pt[1] = y; m_pt[2] = z; }
+
+	vtkPoint(double* d) { m_pt[0] = d[0]; m_pt[1] = d[1]; m_pt[2] = d[2]; }
+
+	double& operator[](unsigned i) {return m_pt[i];}
+	const double& operator[](unsigned i) const {return m_pt[i];}
+
+	const double* data() const {return m_pt; }
+
+
+	vtkPoint& operator=(const vtkPoint& rhs) {
+		if (this != &rhs) {
+			m_pt[0] = rhs.m_pt[0];
+			m_pt[1] = rhs.m_pt[1];
+			m_pt[2] = rhs.m_pt[2];
+		}
+		return *this;
+	}
+
+	vtkPoint(const vtkPoint& orig) {
+		operator=(orig);
+	}
+
+
+private:
+	double m_pt[3];
+};
+
+class vtkHelper {
+public:
+	static int vtkDataTypeIdToStatismoDataTypeId(int vtkDataTypeId) {
+
+		int dataType = statismo::VOID;
+		switch(vtkDataTypeId) {
+		case VTK_UNSIGNED_CHAR:
+			dataType = statismo::UNSIGNED_CHAR;
+			break;
+		case VTK_SIGNED_CHAR:
+			dataType = statismo::SIGNED_CHAR;
+			break;
+		case VTK_FLOAT:
+			dataType = statismo::FLOAT;
+			break;
+		case VTK_DOUBLE:
+			dataType = statismo::DOUBLE;
+			break;
+		case VTK_UNSIGNED_INT:
+			dataType = statismo::UNSIGNED_INT;
+			break;
+		case VTK_INT:
+			dataType = statismo::SIGNED_INT;
+			break;
+		case VTK_UNSIGNED_SHORT:
+			dataType = statismo::UNSIGNED_SHORT;
+			break;
+		case VTK_SHORT:
+			dataType = statismo::SIGNED_SHORT;
+			break;
+		case VTK_UNSIGNED_LONG:
+			dataType = statismo::UNSIGNED_LONG;
+			break;
+		case VTK_LONG:
+			dataType = statismo::SIGNED_LONG;
+			break;
+		default:
+			throw StatisticalModelException("Unsupported data type for dataArray in vtkStandardMeshRepresenter::GetAsDataArray.");
+		}
+		return dataType;
+	}
+};
+
+
+#endif // __VTK_HELPER_H
