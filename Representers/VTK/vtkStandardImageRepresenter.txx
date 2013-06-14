@@ -87,7 +87,15 @@ vtkStandardImageRepresenter<TScalar, PixelDimensions>::Clone() const
 
 template <class TScalar, unsigned PixelDimensions>
 vtkStandardImageRepresenter<TScalar, PixelDimensions>*
-vtkStandardImageRepresenter<TScalar, PixelDimensions>::Load(const H5::CommonFG& fg) {
+vtkStandardImageRepresenter<TScalar, PixelDimensions>::Load(const H5::Group& fg) {
+
+	std::string type = HDF5Utils::readStringAttribute(fg, "datasetType");
+	if (type != "POLYGON_MESH") {
+		throw StatisticalModelException((std::string("Cannot load representer data: The ")
+				+"representer specified in the given hdf5 file is of the wrong type: ("
+				+type +", expected IMAGE)").c_str());
+	}
+
 
 	statismo::VectorType originVec;
 	HDF5Utils::readVector(fg, "origin", originVec);
@@ -308,8 +316,13 @@ vtkStandardImageRepresenter<TScalar, PixelDimensions>::PointSampleVectorToPointS
 
 template <class TScalar, unsigned Dimensions>
 void
-vtkStandardImageRepresenter<TScalar, Dimensions>::Save(const H5::CommonFG& fg) const {
+vtkStandardImageRepresenter<TScalar, Dimensions>::Save(const H5::Group& fg) const {
 	using namespace H5;
+
+	HDF5Utils::writeStringAttribute(fg, "name", this->GetName());
+	HDF5Utils::writeStringAttribute(fg, "version", "0.1");
+	HDF5Utils::writeStringAttribute(fg, "datasetType", "IMAGE");
+
 
 	// get the effective image dimension, by check the size
 	int* size = m_reference->GetDimensions();

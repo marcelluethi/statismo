@@ -95,10 +95,10 @@ vtkStandardMeshRepresenter::Clone() const
 
 inline
 vtkStandardMeshRepresenter*
-vtkStandardMeshRepresenter::Load(const H5::CommonFG& fg) {
+vtkStandardMeshRepresenter::Load(const H5::Group& fg) {
 	DatasetPointerType ref;
 
-	std::string type = HDF5Utils::readString(fg, "./datasetType");
+	std::string type = HDF5Utils::readStringAttribute(fg, "datasetType");
 	if (type != "POLYGON_MESH") {
 		throw StatisticalModelException((std::string("Cannot load representer data: The ")
 				+"representer specified in the given hdf5 file is of the wrong type: ("
@@ -181,12 +181,12 @@ vtkStandardMeshRepresenter::Load(const H5::CommonFG& fg) {
 
 inline
 void
-vtkStandardMeshRepresenter::Save(const H5::CommonFG& fg) const {
+vtkStandardMeshRepresenter::Save(const H5::Group& fg) const {
 	using namespace H5;
 
-	HDF5Utils::writeString(fg, "name", this->GetName());
-	HDF5Utils::writeString(fg, "version", "0.1");
-	HDF5Utils::writeString(fg, "datasetType", "POLYGON_MESH");
+	HDF5Utils::writeStringAttribute(fg, "name", this->GetName());
+	HDF5Utils::writeStringAttribute(fg, "version", "0.1");
+	HDF5Utils::writeStringAttribute(fg, "datasetType", "POLYGON_MESH");
 
 	statismo::MatrixType vertexMat = statismo::MatrixType::Zero(3, m_reference->GetNumberOfPoints());
 

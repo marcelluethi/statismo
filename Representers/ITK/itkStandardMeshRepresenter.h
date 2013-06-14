@@ -87,7 +87,7 @@ public:
 	/** Run-time type information (and related methods). */
 	itkTypeMacro( StandardMeshRepresenter, Object );
 
-	static StandardMeshRepresenter* Load(const H5::CommonFG& fg);
+	static StandardMeshRepresenter* Load(const H5::Group& fg);
 	StandardMeshRepresenter* Clone() const;
 
     typedef itk::Mesh<TPixel, MeshDimension> MeshType;
@@ -159,7 +159,7 @@ public:
 	/**
 	 * Save the state of the representer (this simply saves the reference)
 	 */
-	void Save(const H5::CommonFG& fg) const;
+	void Save(const H5::Group& fg) const;
 
 	/// return the number of points of the reference
 	virtual unsigned GetNumberOfPoints() const;

@@ -82,12 +82,12 @@ StandardMeshRepresenter<TPixel, MeshDimension>::Clone() const {
 
 template <class TPixel, unsigned MeshDimension>
 StandardMeshRepresenter<TPixel, MeshDimension>*
-StandardMeshRepresenter<TPixel, MeshDimension>::Load(const H5::CommonFG& fg) {
+StandardMeshRepresenter<TPixel, MeshDimension>::Load(const H5::Group& fg) {
 
 	StandardMeshRepresenter* newInstance = new StandardMeshRepresenter();
 	newInstance->Register();
 
-	std::string type = HDF5Utils::readString(fg, "./datasetType");
+	std::string type = HDF5Utils::readStringAttribute(fg, "datasetType");
 	if (type != "POLYGON_MESH") {
 		throw StatisticalModelException(("got standard representer of wrong type: (" +type +", expected POLYGON_MESH)").c_str());
 	}
@@ -284,12 +284,11 @@ StandardMeshRepresenter<TPixel, MeshDimension>::PointSampleToPointSampleVector(c
 
 template <class TPixel, unsigned MeshDimension>
 void
-StandardMeshRepresenter<TPixel, MeshDimension>::Save(const H5::CommonFG& fg) const {
+StandardMeshRepresenter<TPixel, MeshDimension>::Save(const H5::Group& fg) const {
 	using namespace H5;
 
-	HDF5Utils::writeString(fg, "name", this->GetName());
-	HDF5Utils::writeString(fg, "version", "0.1");
-	HDF5Utils::writeString(fg, "datasetType", "POLYGON_MESH");
+	HDF5Utils::writeStringAttribute(fg, "version", "0.1");
+	HDF5Utils::writeStringAttribute(fg, "datasetType", "POLYGON_MESH");
 	statismo::MatrixType vertexMat = statismo::MatrixType::Zero(3, m_reference->GetNumberOfPoints());
 
 	for (unsigned i = 0; i < m_reference->GetNumberOfPoints(); i++) {

@@ -87,11 +87,17 @@ StandardImageRepresenter<TPixel, ImageDimension>::Clone() const {
 
 template <class TPixel, unsigned ImageDimension>
 StandardImageRepresenter<TPixel, ImageDimension>*
-StandardImageRepresenter<TPixel, ImageDimension>::Load(const H5::CommonFG& fg) {
+StandardImageRepresenter<TPixel, ImageDimension>::Load(const H5::Group& fg) {
 
 	StandardImageRepresenter* newInstance = new StandardImageRepresenter();
 	newInstance->Register();
 
+	std::string datasetType = HDF5Utils::readStringAttribute(fg, "datasetType");
+	if (datasetType != "IMAGE") {
+		throw StatisticalModelException((std::string("Cannot load representer data: The ")
+				+"representer specified in the given hdf5 file is of the wrong type: ("
+				+datasetType +", expected IMAGE)").c_str());
+	}
 
 	int readImageDimension = HDF5Utils::readInt(fg, "imageDimension");
 	if (readImageDimension != ImageDimension)  {
@@ -292,8 +298,12 @@ StandardImageRepresenter<TPixel, ImageDimension>::PointSampleToPointSampleVector
 
 template <class TPixel, unsigned ImageDimension>
 void
-StandardImageRepresenter<TPixel, ImageDimension>::Save(const H5::CommonFG& fg) const {
+StandardImageRepresenter<TPixel, ImageDimension>::Save(const H5::Group& fg) const {
 	using namespace H5;
+
+	HDF5Utils::writeStringAttribute(fg, "version", "0.1");
+	HDF5Utils::writeStringAttribute(fg, "datasetType", "IMAGE");
+
 
 	typename ImageType::PointType origin = m_reference->GetOrigin();
 	statismo::VectorType originVec(ImageDimension);

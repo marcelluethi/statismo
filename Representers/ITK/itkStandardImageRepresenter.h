@@ -72,7 +72,7 @@ public:
 	/** Run-time type information (and related methods). */
 	itkTypeMacro( StandardImageRepresenter, Object );
 
-	static StandardImageRepresenter* Load(const H5::CommonFG& fg);
+	static StandardImageRepresenter* Load(const H5::Group& fg);
 	StandardImageRepresenter* Clone() const;
 
     typedef itk::Image<TPixel, ImageDimension> ImageType;
@@ -118,7 +118,7 @@ public:
 	ValueType PointSampleVectorToPointSample(const statismo::VectorType& pointSample) const;
 	statismo::VectorType PointSampleToPointSampleVector(const ValueType& v) const;
 
-	void Save(const H5::CommonFG& fg) const;
+	void Save(const H5::Group& fg) const;
 	virtual unsigned GetNumberOfPoints() const;
 	virtual unsigned GetPointIdForPoint(const PointType& point) const;
 

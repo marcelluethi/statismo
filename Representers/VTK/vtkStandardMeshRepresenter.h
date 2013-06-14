@@ -74,7 +74,7 @@ public:
 		return new vtkStandardMeshRepresenter(reference);
 	}
 
-	static vtkStandardMeshRepresenter* Load(const H5::CommonFG& fg);
+	static vtkStandardMeshRepresenter* Load(const H5::Group& fg);
 
 	vtkStandardMeshRepresenter* Clone() const;
 	void Delete() const { delete this; }
@@ -98,7 +98,7 @@ public:
 	ValueType PointSampleVectorToPointSample(const statismo::VectorType& pointSample) const;
 
 
-	void Save(const H5::CommonFG& fg) const;
+	void Save(const H5::Group& fg) const;
 	unsigned GetNumberOfPoints() const;
 	unsigned GetPointIdForPoint(const PointType& point) const;
 

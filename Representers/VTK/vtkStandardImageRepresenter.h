@@ -75,7 +75,7 @@ public:
 
 	static vtkStandardImageRepresenter* Create(DatasetConstPointerType reference) { return new vtkStandardImageRepresenter(reference); }
 
-	static vtkStandardImageRepresenter* Load(const H5::CommonFG& fg);
+	static vtkStandardImageRepresenter* Load(const H5::Group& fg);
 	vtkStandardImageRepresenter* Clone() const;
 
 	struct DatasetInfo {}; // not used for this representer, but needs to be here as it is part of the generic interface
@@ -105,7 +105,7 @@ public:
 	unsigned GetPointIdForPoint(const PointType& pt) const;
 
 	unsigned GetNumberOfPoints() const;
-	void Save(const H5::CommonFG& fg) const;
+	void Save(const H5::Group& fg) const;
 
 	static void DeleteDataset(DatasetPointerType  d);
     static unsigned GetNumberOfPoints(DatasetPointerType  reference);
