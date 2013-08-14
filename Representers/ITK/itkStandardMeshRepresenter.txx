@@ -324,7 +324,7 @@ StandardMeshRepresenter<TPixel, MeshDimension>::Save(const H5::Group& fg) const 
 	H5::Group pdGroup = fg.createGroup("pointData");
 
 	typename MeshType::PointDataContainerPointer pd = m_reference->GetPointData();
-	if (pd) {
+	if (pd.IsNotNull() && pd->Size() == m_reference->GetNumberOfPoints()) {
 		unsigned numComponents = PixelConversionTrait<TPixel>::ToVector(pd->GetElement(0)).rows();
 
 		DoubleMatrixType scalarsMat = DoubleMatrixType::Zero(numComponents, m_reference->GetNumberOfPoints());
