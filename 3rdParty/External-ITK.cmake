@@ -12,6 +12,8 @@ if(NOT USE_GIT_PROTOCOL)
   set(git_protocol "http")
 endif()
 
+set( ITK_DEPENDENCIES HDF5 )
+
 ExternalProject_Add(ITK
   DEPENDS ${ITK_DEPENDENCIES}
   GIT_REPOSITORY ${git_protocol}://itk.org/ITK.git
@@ -31,6 +33,7 @@ ExternalProject_Add(ITK
     -DITK_LEGACY_REMOVE:BOOL=ON
     -DCMAKE_BUILD_TYPE:STRING=${CMAKE_BUILD_TYPE}
     -DCMAKE_INSTALL_PREFIX:PATH=${CMAKE_BINARY_DIR}/3rdParty/ITK
+    -DITK_USE_SYSTEM_HDF5:BOOL=ON
 )
 
 set( ITK_DIR ${CMAKE_BINARY_DIR}/3rdParty/ITK/lib/cmake/ITK-4.5/ )

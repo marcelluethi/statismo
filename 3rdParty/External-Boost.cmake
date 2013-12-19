@@ -39,10 +39,4 @@ ExternalProject_Add(boost
 #  INSTALL_DIR ${CMAKE_BINARY_DIR}/INSTALL
 )
 
-if( NOT WIN32 )
-#  set(Boost_LIBRARY_DIR ${CMAKE_BINARY_DIR}/INSTALL/lib/boost/ )
-  set(Boost_INCLUDE_DIR ${CMAKE_BINARY_DIR}/3rdParty/boost )
-else()
-#  set(Boost_LIBRARY_DIR ${CMAKE_BINARY_DIR}/INSTALL/lib/ )
-  set(Boost_INCLUDE_DIR ${CMAKE_BINARY_DIR}/3rdParty/boost-1_54/ )
-endif()
+set(Boost_INCLUDE_DIR ${CMAKE_BINARY_DIR}/3rdParty )
