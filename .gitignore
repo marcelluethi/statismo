@@ -7,3 +7,5 @@
 build/*
 CMakeCache.txt
 CMakeFiles
+*.orig
+*.bak
