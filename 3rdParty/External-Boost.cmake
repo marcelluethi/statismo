@@ -26,17 +26,6 @@ ExternalProject_Add(boost
   CONFIGURE_COMMAND ""
   BUILD_COMMAND ""
   INSTALL_COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_BINARY_DIR}/boost-prefix/src/boost/boost ${CMAKE_BINARY_DIR}/3rdParty/boost
-#  CONFIGURE_COMMAND ${Boost_Bootstrap_Command} --without-icu --prefix=${CMAKE_BINARY_DIR}/INSTALL
-#  BUILD_COMMAND ${Boost_b2_Command}
-#    --without-python
-#    link=static
-#    link=shared
-#    threading=multi
-#    -d+2
-#    -j8
-#    install
-#  INSTALL_COMMAND ""
-#  INSTALL_DIR ${CMAKE_BINARY_DIR}/INSTALL
 )
 
 set(Boost_INCLUDE_DIR ${CMAKE_BINARY_DIR}/3rdParty )
