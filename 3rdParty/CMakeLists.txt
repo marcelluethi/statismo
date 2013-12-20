@@ -47,6 +47,23 @@ else()
 endif()
 
 # -----------------------------------------------------
+# VTK
+option( External_VTK "Build ITK" ON )
+
+if( ${External_VTK} MATCHES "ON" )
+  include( External-VTK.cmake )
+  set( Statismo_DEPENDENCIES ${Statismo_DEPENDENCIES} VTK )
+
+  install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/3rdParty/VTK/include/ DESTINATION include )
+  install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/3rdParty/VTK/bin/ DESTINATION bin )
+  install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/3rdParty/VTK/lib/ DESTINATION lib )
+  install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/3rdParty/VTK/share/ DESTINATION share )
+else()
+  find_package( VTK 6.0 REQUIRED )
+  include( ${VTK_USE_FILE} )
+endif()
+
+# -----------------------------------------------------
 # ITK
 option( External_ITK "Build ITK" ON )
 
@@ -61,23 +78,6 @@ if( ${External_ITK} MATCHES "ON" )
 else()
   find_package( ITK 4.5 REQUIRED )
   include( ${ITK_USE_FILE} )
-endif()
-
-# -----------------------------------------------------
-# ITK
-option( External_VTK "Build ITK" ON )
-
-if( ${External_VTK} MATCHES "ON" )
-  include( External-VTK.cmake )
-  set( Statismo_DEPENDENCIES ${Statismo_DEPENDENCIES} VTK )
-
-  install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/3rdParty/VTK/include/ DESTINATION include )
-  install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/3rdParty/VTK/bin/ DESTINATION bin )
-  install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/3rdParty/VTK/lib/ DESTINATION lib )
-  install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/3rdParty/VTK/share/ DESTINATION share )
-else()
-  find_package( VTK 6.0 REQUIRED )
-  include( ${VTK_USE_FILE} )
 endif()
 
 ExternalProject_Add( Statismo
