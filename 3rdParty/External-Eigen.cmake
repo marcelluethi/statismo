@@ -5,7 +5,7 @@ ExternalProject_Add( Eigen3
   UPDATE_COMMAND ""
   CONFIGURE_COMMAND ""
   BUILD_COMMAND ""
-  INSTALL_COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_BINARY_DIR}/Eigen3-prefix/src/Eigen3/Eigen ${CMAKE_BINARY_DIR}/3rdParty/Eigen
+  INSTALL_COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_BINARY_DIR}/Eigen3-prefix/src/Eigen3/Eigen ${CMAKE_BINARY_DIR}/3rdParty/include/Eigen
 )
 
-set(EIGEN3_INCLUDE_DIR ${CMAKE_BINARY_DIR}/3rdParty )
+set(EIGEN3_INCLUDE_DIR ${CMAKE_BINARY_DIR}/3rdParty/include )

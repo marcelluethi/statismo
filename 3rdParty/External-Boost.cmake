@@ -25,7 +25,7 @@ ExternalProject_Add(boost
   PATCH_COMMAND ${Boost_Patch_Command}
   CONFIGURE_COMMAND ""
   BUILD_COMMAND ""
-  INSTALL_COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_BINARY_DIR}/boost-prefix/src/boost/boost ${CMAKE_BINARY_DIR}/3rdParty/boost
+  INSTALL_COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_BINARY_DIR}/boost-prefix/src/boost/boost ${CMAKE_BINARY_DIR}/3rdParty/include/boost
 )
 
-set(Boost_INCLUDE_DIR ${CMAKE_BINARY_DIR}/3rdParty )
+set(Boost_INCLUDE_DIR ${CMAKE_BINARY_DIR}/3rdParty/include )

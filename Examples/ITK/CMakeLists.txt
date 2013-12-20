@@ -17,8 +17,6 @@ include_directories(
   ${STATISMO_ROOT_DIR}/Representers/ITK
 )
 
-# link_directories( ${HDF5_LIBRARY_DIR} ${ITK_LIBRARY_DIRS} ${STATISMO_LIBRARY_DIR} )
-
 add_executable( itkBuildDeformationModel
   buildDeformationModel.cpp
 	${SOURCE_FILES}

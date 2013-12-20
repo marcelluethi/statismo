@@ -6,7 +6,6 @@ enable_testing()
 set(STATISMO_VERSION 0.8)
 set(STATISMO_MINOR_VERSION 1)
 
-
 # Setup build locations.
 if(NOT CMAKE_RUNTIME_OUTPUT_DIRECTORY)
   set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
@@ -23,20 +22,23 @@ include_directories( ${EIGEN3_INCLUDE_DIR} )
 find_package( Boost REQUIRED )
 include_directories( ${Boost_INCLUDE_DIRS} )
 
+find_package( HDF5 COMPONENTS C CXX )
+include_directories( ${HDF5_INCLUDE_DIRS} )
 
-  find_package( HDF5 COMPONENTS C CXX )
-  message( "HDF5_LIBRARIES: ${HDF5_LIBRARIES}" )
-  message( "HDF5_INCLUDE_DIRS: ${HDF5_INCLUDE_DIRS}" )
+set( HDF5_LIBRARY_DIR )
+foreach( _library ${HDF5_LIBRARIES} )
+  get_filename_component( _tempDir${_library} ${_library} PATH )
+  list( APPEND HDF5_LIBRARY_DIR ${_tempDir${_library}} )
+endforeach()
 
-  include_directories( ${HDF5_INCLUDE_DIRS} )
+list( REMOVE_DUPLICATES HDF5_LIBRARY_DIR )
 
 # rpath settings
-set(CMAKE_SKIP_BUILD_RPATH  FALSE)
-set(CMAKE_BUILD_WITH_INSTALL_RPATH FALSE)
-set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib;${STATISMO_LIBRARY_DIR}")
-set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
+#set(CMAKE_SKIP_BUILD_RPATH  FALSE)
+#set(CMAKE_BUILD_WITH_INSTALL_RPATH FALSE)
+# set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib") #;${HDF5_LIBRARY_DIR}")
+# set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 
-#
 #optional examples and wrapping
 option(BUILD_ITK_EXAMPLES "Build the itk examples " OFF)
 option(BUILD_VTK_EXAMPLES "Build the vtk examples " OFF)

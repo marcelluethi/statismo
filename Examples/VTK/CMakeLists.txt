@@ -4,10 +4,8 @@ project(ssm_vtk)
 find_package(VTK REQUIRED)
 include (${VTK_USE_FILE})
 
-
 file(GLOB INCLUDE_FILES *.h)
 file(GLOB SOURCE_FILES  *.txx *.cpp)
-
 
 include_directories(
   ${STATISMO_ROOT_DIR}
