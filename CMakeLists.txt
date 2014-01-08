@@ -23,7 +23,7 @@ find_package( Boost REQUIRED )
 include_directories( ${Boost_INCLUDE_DIRS} )
 
 find_package( HDF5 COMPONENTS C CXX )
-include_directories( ${HDF5_INCLUDE_DIRS} )
+include_directories( ${HDF5_INCLUDE_DIR} ${HDF5_INCLUDE_DIR_CPP})
 
 set( HDF5_LIBRARY_DIR )
 foreach( _library ${HDF5_LIBRARIES} )

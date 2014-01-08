@@ -1,4 +1,4 @@
-set( HDF5_VERSION "1.8.12" )
+set( HDF5_VERSION "1.8.9" )
 
 if(WIN32)
   set(HDF5_BUILD_SHARED OFF)
