@@ -39,8 +39,8 @@
 
 %include "typemaps.i"
 %include "std_string.i"
-%include "std_list.i"
-%include "std_vector.i"
+//%include "std_list.i"
+//%include "std_vector.i"
 %include "std_pair.i"
 %include "std_vector.i"
 %include "carrays.i"
@@ -79,7 +79,7 @@ public:
    try {
       $action
    } catch (statismo::StatisticalModelException &e) {
-      PyErr_SetString(PyExc_RuntimeError, const_cast<char*>(e.what()));
+      //PyErr_SetString(PyExc_RuntimeError, const_cast<char*>(e.what()));
       return NULL;
    }
 }
@@ -110,20 +110,16 @@ private:
 	DataItem(const Representer<T>* representer, const std::string& filename, const VectorType& sampleVector);
 };
 
-template <typename T>
-struct DataItemWithSurrogates : public DataItem<T> { 
-	const VectorType& GetSurrogateVector() const;
-	const std::string& GetSurrogateFilename() const;
-};
+
 }
 
 %template(DataItem_vtkPD) statismo::DataItem<vtkPolyData>;
-%template(DataItemWithSurrogates_vtkPD) statismo::DataItemWithSurrogates<vtkPolyData>;
+
 
 
 %traits_swigtype(statismo::DataItem<vtkPolyData>); // workaround for a swig bug with const ptr
 %fragment(SWIG_Traits_frag(statismo::DataItem<vtkPolyData>));  // workaround for a swig bug with const ptr
-%template(DataItemList_vtkPD) std::list<const statismo::DataItem<vtkPolyData> *>;
+//%template(DataItemList_vtkPD) std::list<const statismo::DataItem<vtkPolyData> *>;
 
 
 template <typename Representer>
@@ -139,7 +135,7 @@ public:
 };
 %template(CrossValidationFold_vtkPD) statismo::CrossValidationFold<vtkPolyData>;
 
-%template(CrossValidationFoldList_vtkPD) std::list<statismo::CrossValidationFold<vtkPolyData> >;
+//%template(CrossValidationFoldList_vtkPD) std::list<statismo::CrossValidationFold<vtkPolyData> >;
 
 
 //////////////////////////////////////////////////////
@@ -189,22 +185,6 @@ private:
 %template(DataManager_vtkPD) statismo::DataManager<vtkPolyData>;
 
 
-namespace statismo {
-template <typename T>
-class DataManagerWithSurrogates : public DataManager<T> {
-public:
-	typedef statismo::Representer<T> RepresenterType;
-	typedef RepresenterType::DatasetConstPointerType DatasetConstPointerType;
-
-	static DataManagerWithSurrogates<T>* Create(const RepresenterType* representer, const std::string& surrogTypeFilename);
-	void AddDatasetWithSurrogates(DatasetConstPointerType datasetFilename, const std::string& surrogateFilename,  const std::string& surrogateFilename);
-		
-private:
-	DataManagerWithSurrogates();
-};
-}
-
-%template(DataManagerWithSurrogates_vtkPD) statismo::DataManagerWithSurrogates<vtkPolyData>;
 
 
 //////////////////////////////////////////////////////
@@ -214,9 +194,9 @@ private:
 
 
 %template(PointValuePair_vtkPD) std::pair<statismo::RepresenterTraits<vtkPolyData>::PointType, statismo::RepresenterTraits<vtkPolyData>::ValueType>;
-%template(PointValueList_vtkPD) std::list<std::pair<statismo::RepresenterTraits<vtkPolyData>::PointType, statismo::RepresenterTraits<vtkPolyData>::ValueType> >;
+//%template(PointValueList_vtkPD) std::list<std::pair<statismo::RepresenterTraits<vtkPolyData>::PointType, statismo::RepresenterTraits<vtkPolyData>::ValueType> >;
 %template(PointIdValuePair_vtkPD) std::pair<unsigned, statismo::RepresenterTraits<vtkPolyData>::ValueType>;
-%template(PointIdValueList_vtkPD) std::list<std::pair<unsigned, statismo::RepresenterTraits<vtkPolyData>::ValueType> >;
+//%template(PointIdValueList_vtkPD) std::list<std::pair<unsigned, statismo::RepresenterTraits<vtkPolyData>::ValueType> >;
 
 //////////////////////////////////////////////////////
 // PointValueWithCovariancePair
@@ -260,7 +240,7 @@ public:
 };
 }
 %template (KeyValuePair) std::pair<std::string, std::string>; 
-%template(KeyValueList) std::list<std::pair<std::string, std::string> >;
+//%template(KeyValueList) std::list<std::pair<std::string, std::string> >;
 %template(BuilderInfoList) std::vector<statismo::BuilderInfo>;
 
 /////////////////////////////////////////////////////////////////
