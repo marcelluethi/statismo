@@ -42,6 +42,7 @@
 #include "itkMacro.h"
 #include "itkStatisticalModel.h"
 #include "ActiveShapeModel.h"
+#include "itkStatismoIO.h"
 
 namespace itk {
 
@@ -49,8 +50,9 @@ namespace itk {
     class ActiveShapeModel : public Object, public statismo::ActiveShapeModel<ASM> {
     protected:
         virtual typename ASM::StatisticalModelPointerType LoadStatisticalShapeModel(const typename ASM::MeshRepresenterPointerType representer, const H5::Group& group) {
-            typename ASM::StatisticalModelPointerType model = ASM::StatisticalModelType::New();
-            model->Load(representer, group);
+
+	  typename ASM::StatisticalModelPointerType model = itk::StatismoIO<typename ASM::MeshType>::Load(representer, group);
+       
             return model;
         }
     public:
