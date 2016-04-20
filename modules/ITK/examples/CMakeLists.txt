@@ -7,6 +7,7 @@ if(MSVC11) #i.e. Visual Studio 2012
 endif()
 
 set( _examples
+  itkActiveShapeModelTest
   itkBuildGaussianProcessDeformationModel
   itkBuildShapeModel_75pcvar
   itkLandmarkConstrainedShapeModelFitting
