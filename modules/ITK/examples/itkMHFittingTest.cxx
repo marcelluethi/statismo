@@ -113,7 +113,7 @@ int main(int argc, char *argv[]) {
     // very ITK unlike, we use a init method instead of setting all fields manually.
     // This avoids 99% of all core dumps :-)
     FittingStepType::Pointer fittingStep = FittingStepType::New();
-    fittingStep->init(pimage, linePoints, aModel, FittingStepType::SamplerPointerType(fitSampler.GetPointer()), mhFitConfig, currentTransform, coeffs);
+    fittingStep->init(pimage, image, linePoints, aModel, FittingStepType::SamplerPointerType(fitSampler.GetPointer()), mhFitConfig, currentTransform, coeffs);
 
     std::cout << "Initialization done." << std::endl;
 

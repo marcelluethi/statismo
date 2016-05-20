@@ -130,6 +130,7 @@ namespace statismo {
 
       typedef ActiveShapeModel<TPointSet, TImage> ActiveShapeModelType;
       typedef ASMPointSampler<TPointSet, TImage> PointSamplerType;
+      typedef TImage ImageType;
       typedef typename Representer<TPointSet>::PointType PointType;
       typedef StatisticalModel<TPointSet> StatisticalModelType;
       typedef typename StatisticalModelType::RepresenterType RepresenterType;
@@ -376,7 +377,7 @@ namespace statismo {
               typename RepresenterType::DatasetPointerType currentModelInstance = m_asmodel->GetRepresenter()->TransformMesh(sampleShape, currentSample.GetRigidTransform());
 
 
-              unsigned numProfilePointsUsed = 500;
+              unsigned numProfilePointsUsed = 300;
               unsigned step = m_asmodel->GetProfiles().size() / numProfilePointsUsed;
 //              FeatureExtractorType* fe = m_asmodel->GetFeatureExtractor()->CloneForTarget(m_asmodel,currentSample.GetCoefficients(),currentSample.GetRigidTransform());
 
@@ -449,6 +450,112 @@ namespace statismo {
       // TODO: Full image evaluator, i.e. ASM Evaluator is missing
 
 
+
+      template <class T>
+      class HURangeASMEvaluator : public DistributionEvaluator< ChainSampleType > {
+
+      public:
+        HURangeASMEvaluator(ActiveShapeModelType* asmodel, PreprocessedImageType* image, const FeatureExtractorType* imageValueExtractor) :
+          m_asmodel(asmodel),
+          m_image(image),
+          m_extractor(imageValueExtractor) {}
+
+        // DistributionEvaluatorInterface interface
+      public:
+        virtual double evalSample(const ChainSampleType& currentSample) {
+
+          
+          typename RepresenterType::DatasetPointerType  sampleShape = m_asmodel->GetStatisticalModel()->DrawSample(currentSample.GetCoefficients());
+          typename RepresenterType::DatasetPointerType currentModelInstance = m_asmodel->GetRepresenter()->TransformMesh(sampleShape, currentSample.GetRigidTransform());
+
+          
+          std::cout << "Evaluating current sample in HU Evaluator." << std::endl;
+
+
+          unsigned numProfilePointsUsed = 300;
+          unsigned step = m_asmodel->GetProfiles().size() / numProfilePointsUsed;
+          unsigned numChunks = boost::thread::hardware_concurrency() + 1;
+          std::vector<boost::future<ASMLikelihoodForChunk>* > futvec;
+
+
+          for (unsigned i = 0; i < numChunks; ++i) {
+            unsigned profileIdStart = m_asmodel->GetProfiles().size() / numChunks  * i;
+            unsigned profileIdEnd = m_asmodel->GetProfiles().size() / numChunks * (i + 1);
+
+            boost::future<ASMLikelihoodForChunk> *fut = new boost::future<ASMLikelihoodForChunk>(
+              boost::async(boost::launch::async, boost::bind(&HURangeASMEvaluator<T>::evalSampleForProfiles,
+              this, profileIdStart, profileIdEnd, step,// fe,
+              currentModelInstance, currentSample)));
+            futvec.push_back(fut);
+          }
+
+
+          double loglikelihood = 0.0;
+          for (unsigned i = 0; i < futvec.size(); i++) {
+
+            ASMLikelihoodForChunk likelihoodForChunk = futvec[i]->get();
+            loglikelihood += likelihoodForChunk.aggregatedLikelihood;
+            delete futvec[i];
+          }
+
+
+          return loglikelihood;
+
+        }
+
+
+        ASMLikelihoodForChunk evalSampleForProfiles(unsigned profileIdStart, unsigned profileIdEnd, unsigned step, 
+          typename RepresenterType::DatasetPointerType currentModelInstance, const ChainSampleType& currentSample) {
+
+          
+          FeatureExtractorType* fe = m_extractor->CloneForTarget(m_asmodel, currentSample.GetCoefficients(), currentSample.GetRigidTransform());
+
+          double loglikelihood = 0.0;
+
+          for (unsigned i = profileIdStart; i < profileIdEnd; i += step) {
+
+            ASMProfile profile = m_asmodel->GetProfiles()[i];
+            long ptId = profile.GetPointId();
+
+            statismo::VectorType features;
+
+
+            bool ok = fe->ExtractFeatures(features, m_image, currentModelInstance->GetPoint(ptId));
+
+            if (ok) {
+              const int intercept = -1024;
+              const int threshold = 400;
+              // Tests have shown at least for the Esophagus example, that the 
+              // first half of the points are inside.
+              for (size_t j = 0; j < features.size() / 2; j++) {
+                if (features[j] + intercept > threshold)
+                {
+                  std::cout << "Value above threshold: " << features[j] + intercept << std::endl;
+                  auto diff = features[j] + intercept - threshold;
+                  loglikelihood += diff*diff;
+                }
+              }
+
+            }
+            else {
+              std::cout << "feature not ok " << std::endl;
+            }
+          }
+          // evaluate profile points at ...
+          fe->Delete();
+          //              ASMLikelihoodForChunk asmLikelihoodForChunk(loglikelihood);
+          return ASMLikelihoodForChunk(loglikelihood);
+        }
+
+      private:
+        const ActiveShapeModelType* m_asmodel;
+        PreprocessedImageType* m_image;
+        const FeatureExtractorType* m_extractor;
+        RandomGenerator* m_rGen;
+      };
+
+
+
     public:
       // "Script"
       /*============================================================================*/
@@ -459,7 +566,9 @@ namespace statismo {
                   const Representer<T>* representer,
                   const ClosestPoint<typename Representer<T>::DatasetPointerType, typename Representer<T>::PointType>* closestPoint,
                   MHFittingConfiguration config,
-                  ASMPreprocessedImage<typename Representer<T>::DatasetType>* targetImage,
+                  ASMPreprocessedImage<typename Representer<T>::DatasetType>* preprocessedFeatureImage,
+                  ASMPreprocessedImage<typename Representer<T>::DatasetType>* interpolatedImage,
+                  const FeatureExtractorType* imageValueExtractor,
               vector<PointType> targetPoints,
               ActiveShapeModelType* asmodel,
                   PointSamplerType* asmPointSampler,
@@ -474,7 +583,7 @@ namespace statismo {
             GaussianModelUpdate* poseProposalRough = new GaussianModelUpdate(0.2,rGen);
             GaussianModelUpdate* poseProposalFine = new GaussianModelUpdate(0.05,rGen);
               GaussianModelUpdate* poseProposalFinest = new GaussianModelUpdate(0.01,rGen);
-              ASMModelUpdate* asmProposal = new ASMModelUpdate(config.GetAsmFittingconfiguration(), asmodel, targetImage, asmPointSampler);
+              ASMModelUpdate* asmProposal = new ASMModelUpdate(config.GetAsmFittingconfiguration(), asmodel, preprocessedFeatureImage, asmPointSampler);
 
 
             vector< typename RandomProposal< ChainSampleType >::GeneratorPair> gaussMixtureProposalVector(3);
@@ -488,7 +597,7 @@ namespace statismo {
             PointEvaluator<T>* pointEval = new PointEvaluator<T>(representer, closestPoint, targetPoints,asmodel,diffEval);
             ModelPriorEvaluator* modelPriorEvaluator = new ModelPriorEvaluator();
 //
-
+            auto HUEvaluator = new HURangeASMEvaluator<T>(asmodel, interpolatedImage, imageValueExtractor);
 
               QuietLogger <ChainSampleType>* ql = new QuietLogger<ChainSampleType>();
               MarkovChain<ChainSampleType >* landMarkchain =  new MetropolisHastings<ChainSampleType >(gaussMixtureProposal, pointEval, ql, init, rGen );
@@ -497,7 +606,7 @@ namespace statismo {
 
 //            Gaussian3DPositionDifferenceEvaluator* wideDiffEval = new Gaussian3DPositionDifferenceEvaluator(asmodel->GetRepresenter(), 5.0);
 //            PointEvaluator<T>* widePointEval = new PointEvaluator<T>(representer, closestPoint, targetPoints,asmodel,wideDiffEval);
-            ASMEvaluator<T>* asmEvaluator = new ASMEvaluator<T>(asmodel, targetImage, asmPointSampler);
+            ASMEvaluator<T>* asmEvaluator = new ASMEvaluator<T>(asmodel, preprocessedFeatureImage, asmPointSampler);
 
               std::vector<DistributionEvaluator<ChainSampleType >*> evaluatorList;
               vector< typename RandomProposal< ChainSampleType >::GeneratorPair> finalProposalVector;
@@ -507,6 +616,7 @@ namespace statismo {
                   evaluatorList.push_back(pointEval);
                   evaluatorList.push_back(asmEvaluator);
                   evaluatorList.push_back(modelPriorEvaluator);
+                  evaluatorList.push_back(HUEvaluator);
 
                   finalProposalVector.push_back(pair<ProposalGenerator<ChainSampleType >*,double>(lmChainProposal,0.9));
                   finalProposalVector.push_back(pair<ProposalGenerator<ChainSampleType >*,double>(asmProposal,0.1));
@@ -514,6 +624,8 @@ namespace statismo {
               } else {
                   evaluatorList.push_back(asmEvaluator);
                   evaluatorList.push_back(modelPriorEvaluator);
+                  evaluatorList.push_back(HUEvaluator);
+
                   finalProposalVector.push_back(pair<ProposalGenerator<ChainSampleType >*,double>(gaussMixtureProposal,1.0));
                   finalProposalVector.push_back(pair<ProposalGenerator<ChainSampleType >*,double>(asmProposal,0.0));
 

@@ -48,6 +48,8 @@
 #include "itkPointsLocator.h"
 #include <vector>
 #include "itkStandardMeshRepresenter.h"
+#include "itkASMNormalDirectionImageValueExtractor.h"
+#include "itkASMLinearInterpolatedPreprocessedImage.h"
 
 namespace itk {
 
@@ -155,8 +157,13 @@ namespace itk {
         typedef typename ActiveShapeModel<TPointSet, TImage>::Pointer ModelPointerType;
         typedef typename ActiveShapeModel<TPointSet, TImage>::ImplType::RepresenterType::PointType PointType;
         typedef typename ActiveShapeModel<TPointSet, TImage>::ImplType::RepresenterType::RigidTransformPointerType RigidTransformPointerType;
+        typedef ASMNormalDirectionImageValueExtractor<TPointSet, TImage> ImageValueExtractorType;
+        typedef ASMNormalDirectionImageValueExtractorFactory<TPointSet, TImage> ImageValueExtractorFactoryType;
+        typedef ASMLinearInterpolatedPreprocessedImage<TPointSet, TImage> LinearInterpolatedPreprocessedImageType;
         typedef typename TPointSet::Pointer PointSetPointerType;
-        typedef typename statismo::ASMPreprocessedImage<TPointSet> *ImagePointerType;
+        typedef TImage ImageType;
+        typedef typename ImageType::Pointer ImagePointer;
+        typedef typename statismo::ASMPreprocessedImage<TPointSet> *PreprocessedImagePointerType;
         typedef statismo::MHFittingConfiguration ConfigurationType;
         typedef typename ASMPointSampler<TPointSet, TImage>::Pointer SamplerPointerType;
         typedef statismo::MHFittingStep<TPointSet, TImage> ImplType;
@@ -164,7 +171,8 @@ namespace itk {
 
         MHFittingStep() : /* m_model(0), m_target(0), m_configuration(statismo::ASMFittingConfiguration(0,0,0)), m_transform(0) */ m_chain(0) { }
 
-        void init(ImagePointerType targetImage,
+        void init(PreprocessedImagePointerType preprocessedFeatureImage,
+                  ImagePointer originalImage,
                   const std::vector<PointType>& targetPoints,
                   ModelPointerType model,
                   SamplerPointerType sampler,
@@ -180,7 +188,11 @@ namespace itk {
 //            m_configuration = configuration;
 
 
+            PreprocessedImagePointerType interpolatedImage = LinearInterpolatedPreprocessedImageType::Create(originalImage);
 
+            auto feFactory = ImageValueExtractorFactoryType::GetInstance();
+            auto imageValueExtractor = feFactory->Instantiate(19, 0.5);
+           
             // TODO need pass trough all parameters
 //            vector<PointType,int> targetPointsWithIndex,
 //            ActiveShapeModelType* asmodel,
@@ -189,7 +201,7 @@ namespace itk {
 
             typedef typename statismo::mcmc<TPointSet,TImage>::template BasicSampling<TPointSet> BasicSampingType;
             itkMeshClosestPoint* closestPointEv = new itkMeshClosestPoint() ;// TODO this is a memory leak - there must be a better way
-            m_chain = BasicSampingType::buildChain(m_model->GetStatisticalModel()->GetRepresenter(), closestPointEv, configuration, targetImage, targetPoints, model->GetstatismoImplObj(), m_sampler, transform,coeffs);
+            m_chain = BasicSampingType::buildChain(m_model->GetStatisticalModel()->GetRepresenter(), closestPointEv, configuration, preprocessedFeatureImage, interpolatedImage, imageValueExtractor, targetPoints, model->GetstatismoImplObj(), m_sampler, transform, coeffs);
         }
 
 
@@ -265,3 +277,4 @@ namespace itk {
     };
 }
 #endif //STATISMO_ITKASMFITTING_H
+

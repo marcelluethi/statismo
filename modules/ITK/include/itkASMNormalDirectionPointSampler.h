@@ -45,6 +45,8 @@
 #include "itkTriangleMeshAdapter.h"
 #include "itkCovariantVector.h"
 
+#include <itkVTKPolyDataWriter.h>
+
 namespace itk {
     template<typename TPointSet, typename TImage>
     class ASMNormalDirectionPointSampler : public ASMPointSampler<TPointSet, TImage> {
@@ -176,6 +178,18 @@ namespace itk {
             return GetNormalForPointId(m_locator->FindClosestPoint(targetPoint));
         }
 
+
+        void WriteMesh(const char* fileName)
+        {
+          
+
+          auto polyDataWriter = VTKPolyDataWriter<MeshType>::New();
+          polyDataWriter->SetFileName(fileName);
+          polyDataWriter->SetInput(m_mesh);
+          polyDataWriter->Update();
+
+
+        }
 
     private:
 
