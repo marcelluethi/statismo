@@ -31,6 +31,7 @@ file( GLOB _ITK_hdrs
   include/*.h include/*.hxx include/*.hpp include/*.txx include/*.tpp
 )
 add_custom_target( itk_Headers SOURCES ${_ITK_hdrs})
+
 install( FILES ${_ITK_hdrs}
   DESTINATION ${INSTALL_INCLUDE_DIR}/statismo/ITK
 )
