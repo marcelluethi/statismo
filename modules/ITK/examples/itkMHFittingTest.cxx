@@ -64,7 +64,8 @@ int main(int argc, char *argv[]) {
     statismo::ASMImagePreprocessorFactory<MeshType, ImageType>::RegisterImplementation(itk::ASMGaussianGradientImagePreprocessorFactory<MeshType, ImageType>::GetInstance());
 
     //std::string modelname("/export/skulls/data/shapes/ulna-right/aligned/registered-pami-ams/model-asm/asm-pca-3.h5");
-    std::string modelname("//tmp/fancyasm.h5");
+    std::string modelname("//tmp/fancyasm3"
+                                  ".h5");
     //std::string modelname("//home/marcel/data/ulna-right/test/asm-pca-3.h5");(
 
     ActiveShapeModelType::Pointer aModel = ActiveShapeModelType::New();
@@ -83,9 +84,10 @@ int main(int argc, char *argv[]) {
     ImageReaderType::Pointer reader = ImageReaderType::New();
     //reader->SetFileName("/export/skulls/data/shapes/submandibular_gland_l/aligned/initial/volume-ct/pddca-0522c0002.nii");
     //reader->SetFileName("/export/skulls/data/shapes/ulna-right/aligned/initial/volume-ct/downsampled-2/vsd-0.nii");
-    //reader->SetFileName("/export/skulls/data/shapes/esophagus/raw/normalized-varian/volume-ct/varian-0021.nii");
+    reader->SetFileName("/export/skulls/data/shapes/esophagus/raw/normalized-varian/volume-ct/varian-0021.nii");
 //    reader->SetFileName("/home/luetma00/Download/LUCRUSH02.vtk");
-    reader->SetFileName("/home/luetma00/Download/LUCRUSH02.vtk");
+    //reader->SetFileName("/home/luetma00/Download/LUCRU2.vtk");
+//    reader->SetFileName("/tmp/lucrush03-0.nii");
 //    reader->SetFileName("//home/marcel/data/ulna-right/test/image.nii");
 
     reader->Update();
@@ -95,8 +97,9 @@ int main(int argc, char *argv[]) {
     ShortImageReaderType::Pointer shortreader = ShortImageReaderType::New();
     //reader->SetFileName("/export/skulls/data/shapes/submandibular_gland_l/aligned/initial/volume-ct/pddca-0522c0002.nii");
     //reader->SetFileName("/export/skulls/data/shapes/ulna-right/aligned/initial/volume-ct/downsampled-2/vsd-0.nii");
-    //shortreader->SetFileName("/export/skulls/data/shapes/esophagus/raw/normalized-varian/volume-ct/varian-0021.nii");
-    shortreader->SetFileName("/home/luetma00/Download/LUCRUSH02.vtk");
+    shortreader->SetFileName("/export/skulls/data/shapes/esophagus/raw/normalized-varian/volume-ct/varian-0021.nii");
+    //shortreader->SetFileName("/home/luetma00/Download/LUCRUSH02.vtk");
+    //shortreader->SetFileName("/tmp/lucrush03-0.nii");
     shortreader->Update();
     ShortImageType::Pointer shortImage = shortreader->GetOutput();
 
@@ -123,16 +126,18 @@ int main(int argc, char *argv[]) {
     
 
     std::vector<PointType> linePoints;
-    linePoints = readLandmarksFile<MeshType>(std::string("/tmp/lucrush2-lms.csv"));
+    //linePoints = readLandmarksFile<MeshType>(std::string("/tmp/lucrush2-lms.csv"));
+    //linePoints = readLandmarksFile<MeshType>(std::string("/tmp/lucrush3-line-lms.csv"));
     //linePoints = readLandmarksFile<MeshType>(std::string("/home/luetma00/Download/LUCRUSH02-line-lms.csv"));
-    //linePoints = readLandmarksFile<MeshType>(std::string("/tmp/0021lms-line.csv"));
+    linePoints = readLandmarksFile<MeshType>(std::string("/tmp/0021lms-line.csv"));
     // Get poitn ids of reference and target points
     std::vector<PointType> refPoints;
     refPoints = readLandmarksFile<MeshType>(std::string("/tmp/fancylms.csv"));
 
     std::vector<PointType> targetPoints;
-    targetPoints = readLandmarksFile<MeshType>(std::string("/home/luetma00/Download/LUCRUSH02-lms.csv"));
-    //targetPoints = readLandmarksFile<MeshType>(std::string("/tmp/0021lms.csv"));
+    //targetPoints = readLandmarksFile<MeshType>(std::string("/tmp/lucrush3-lms.csv"));
+    //targetPoints = readLandmarksFile<MeshType>(std::string("/home/luetma00/Download/LUCRUSH02-lms.csv"));
+    targetPoints = readLandmarksFile<MeshType>(std::string("/tmp/0021lms.csv"));
 
 
     typedef itk::PointsLocator< typename RepresenterType::MeshType::PointsContainer > PointsLocatorType;
@@ -163,7 +168,8 @@ int main(int argc, char *argv[]) {
     std::cout << "Initialization done." << std::endl;
 
     StatismoUI::Group modelgroup = ui.createGroup("model");
-	StatismoUI::ShapeModelTransformationView v = ui.showStatisticalShapeModel(modelgroup, aModel->GetStatisticalModel(), "a model");
+	StatismoUI::ShapeModelView ssmView = ui.showStatisticalShapeModel(modelgroup, aModel->GetStatisticalModel(), "a model");
+    StatismoUI::ShapeModelTransformationView ssmTransformationView = ssmView.GetShapeModelTransformationView();
 
 	StatismoUI::Group targetgroup = ui.createGroup("target");
     ui.showImage(targetgroup, shortImage, "target image");
@@ -175,20 +181,15 @@ int main(int argc, char *argv[]) {
 
         fittingStep->NextSample();
         result = fittingStep->GetOutput();
-        ui.updateShapeModelTransformationView(v.SetPoseTransformation(StatismoUI::PoseTransformation(currentTransform)).SetShapeTransformation(result->GetCoefficients()));
+        ssmTransformationView.SetPoseTransformation(StatismoUI::PoseTransformation(currentTransform)).SetShapeTransformation(result->GetCoefficients());
+        ui.updateShapeModelTransformationView(ssmTransformationView);
 
         currentTransform->SetParameters(result->GetRigidTransformParameters());
 
         std::cout << "rigid params " << result->GetRigidTransformParameters() << std::endl;
 
         std::cout << "Writing result of iteration " << i << std::endl;
-        itk::MeshFileWriter<MeshType>::Pointer writer = itk::MeshFileWriter<MeshType>::New();
-        std::stringstream filename;
-        filename << "/tmp/itkmesh-" << i << ".vtk";
-        writer->SetFileName(filename.str());
-        MeshType::Pointer ms = result->GetMesh();
-        writer->SetInput(ms);
-        writer->Update();
+
 
 
     }
@@ -220,6 +221,15 @@ int main(int argc, char *argv[]) {
 
         PointType refPt = ref->GetPoint(id);
         statismo::MatrixType uncertainty = uncertaintyMap.find(id)->second.covariance;
+        vnl_matrix<double> cov(3, 3); cov.set_identity();
+        for (unsigned k = 0; k < 3; ++k) {
+            for (unsigned l = 0; l < 3; ++l) {
+                cov(k,l) = uncertainty(k,l);
+            }
+        }
+        std::ostringstream os;
+        os << "landmark " << i;
+        ui.showLandmark(modelgroup, targetPoint, cov, os.str());
 
         StatisticalModelType::PointValuePairType pointValue(refPt ,targetPoint);
         StatisticalModelType::PointValueWithCovariancePairType  pointValueCov(pointValue, uncertainty);
@@ -238,7 +248,7 @@ int main(int argc, char *argv[]) {
 
 
     vnl_vector<float> newCoeffs  = posteriorModel->ComputeCoefficients(aModel->GetStatisticalModel()->DrawSample(fittingStep->GetOutput()->GetCoefficients()));
-    itk::StatismoIO<MeshType>::SaveStatisticalModel(posteriorModel, "/tmp/posterior.h5");
+
 
     aModel->SetStatisticalModel(posteriorModel);
 
@@ -248,9 +258,11 @@ int main(int argc, char *argv[]) {
 
     fittingStep2->SetChainToLmAndHU(correspondingPoints, targetPoints, currentTransform, fromVnlVector(newCoeffs));
 
-    StatismoUI::Group modelgroupPosterior = ui.createGroup("poster");
-    StatismoUI::ShapeModelTransformationView vposterior = ui.showStatisticalShapeModel(modelgroupPosterior, posteriorModel, "a model");
+    ui.removeShapeModel(ssmView);
 
+    StatismoUI::Group modelgroupPosterior = ui.createGroup("poster");
+    StatismoUI::ShapeModelView shapeModelViewPosterior = ui.showStatisticalShapeModel(modelgroupPosterior, posteriorModel, "a model");
+    StatismoUI::ShapeModelTransformationView ssmTransformationViewPosterior = shapeModelViewPosterior.GetShapeModelTransformationView();
 
     for (int i =1; i <= 2000; ++i) {
 
@@ -260,15 +272,9 @@ int main(int argc, char *argv[]) {
         fittingStep2->NextSample();
         result = fittingStep2->GetOutput();
         currentTransform->SetParameters(result->GetRigidTransformParameters());
-        ui.updateShapeModelTransformationView(vposterior.SetPoseTransformation(StatismoUI::PoseTransformation(currentTransform)).SetShapeTransformation(result->GetCoefficients()));
+        ssmTransformationViewPosterior.SetPoseTransformation(StatismoUI::PoseTransformation(currentTransform)).SetShapeTransformation(result->GetCoefficients());
+        ui.updateShapeModelTransformationView(ssmTransformationViewPosterior);
 
-        itk::MeshFileWriter<MeshType>::Pointer writer = itk::MeshFileWriter<MeshType>::New();
-        std::stringstream filename;
-        filename << "/tmp/itk2mesh-" << i << ".vtk";
-        writer->SetFileName(filename.str());
-        MeshType::Pointer ms = result->GetMesh();
-        writer->SetInput(ms);
-        writer->Update();
 
 
     }
