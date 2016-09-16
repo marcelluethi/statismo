@@ -61,7 +61,6 @@
 #include <Sampling/Proposal/MarkovChainProposal.h>
 
 
-
 namespace statismo {
   using namespace sampling;
   using namespace std;
@@ -221,6 +220,9 @@ namespace statismo {
 
           MultiVariateNormalDistribution uncertaintyForCorrespondencePoint(unsigned id) {
 
+              if (m_params.size() == 0) {
+                  throw std::runtime_error("we did not have an accepted sample in the unceratinty estimation");
+              }
               VectorType avgTransformsParameters = VectorType::Zero(m_params.front().GetRigidTransformParameters().rows());
               for (typename std::list<MHFittingParameters>::const_iterator it = m_params.begin(); it != m_params.end(); ++it) {
                   avgTransformsParameters += it->GetRigidTransformParameters();
@@ -314,7 +316,7 @@ namespace statismo {
 //                  distance = 0;
 //              }
 
-              std::cout << "Accepted Step in " << m_loggerName << " : New number in bone is " << numInBone << std::endl;
+              std::cout << "Accepted Step in " << m_loggerName << " : New number in bone is " << numInBone << " parameter norm " << parameters.GetCoefficients().squaredNorm() << std::endl;
 
           }
 
@@ -344,18 +346,111 @@ namespace statismo {
 
 
 
+      template <class T>
+      class PoseLogger : public ChainLogger<MHFittingParameters> {
+
+      public:
+          PoseLogger(const char* loggerName)
+:                    m_loggerName(loggerName)
+          {
+          }
+
+
+          virtual void notifyAccept(
+                  const MHFittingParameters& parameters,
+                  const double& dProbValue,
+                  ProposalGeneratorInterface<MHFittingParameters>* proposal,
+                  DistributionEvaluatorInterface<MHFittingParameters>* evaluator
+          ) {
+
+
+
+              std::cout << "accepted propseal in logger " << m_loggerName << "with parameters " << parameters.GetRigidTransformParameters().transpose()  << std::endl;
+
+
+          }
+
+          /** \brief Function gets called whenever an algorithm rejects a proposal */
+          virtual void notifyReject(
+                  const MHFittingParameters& sample,
+                  const double& dProbValue,
+                  ProposalGeneratorInterface<MHFittingParameters>* proposal,
+                  DistributionEvaluatorInterface<MHFittingParameters>* evaluator
+          ) {
+
+              std::cout << "rejected propseal in logger " << m_loggerName << "with parameters " << sample.GetRigidTransformParameters().transpose() << std::endl;
+          }
+
+          /** \brief Function gets called whenever an algorithm is reset to a new state */
+          virtual void notifyReset (
+                  const MHFittingParameters& state,
+                  const double& dProbValue,
+                  ProposalGeneratorInterface<MHFittingParameters>* proposal,
+                  DistributionEvaluatorInterface<MHFittingParameters>* evaluator
+          ) {}
+
+
+
+      private:
+          const char* m_loggerName;
+      };
+
+
+
 
       // Proposals
       /*============================================================================*/
-      class GaussianModelUpdate : public ProposalGenerator<MHFittingParameters > {
+//      class GaussianModelUpdate : public ProposalGenerator<MHFittingParameters > {
+//        private:
+//          double sigmaShape;
+//          double sigmaTranslation;
+//          double sigmaRotation;
+//          unsigned m_maxNumberOfShapeParameters;
+//          RandomGenerator* rgen;
+//
+//        public:
+//          GaussianModelUpdate( double stepSizeShape, double stepSizeRotation, double stepSizeTranslation, unsigned maxNumberOfShapeParameters, RandomGenerator* rgen )
+//                  : sigmaShape(stepSizeShape), sigmaRotation(stepSizeRotation), sigmaTranslation(stepSizeTranslation), rgen(rgen), m_maxNumberOfShapeParameters(maxNumberOfShapeParameters) {}
+//
+//          // ProposalGeneratorInterface interface
+//        public:
+//          virtual void generateProposal(MHFittingParameters& proposal, const MHFittingParameters& currentSample){
+//            VectorType shapeParams = currentSample.GetCoefficients();
+//
+//              VectorType newShapeParams(shapeParams.size());
+//              newShapeParams.fill(0);
+//            for (unsigned i = 0; i < std::min(m_maxNumberOfShapeParameters, static_cast<unsigned>(shapeParams.size())); ++i) {
+//                newShapeParams[i] = shapeParams[i] + rgen->normalDbl() * sigmaShape;
+//            }
+//
+//
+//              VectorType newRigidParams = currentSample.GetRigidTransformParameters();
+//              for (unsigned i = 0; i < currentSample.GetRigidTransformParameters().size(); ++i) {
+//                  if (i < 3) {// rotation parameters
+//                    newRigidParams[i] += rgen->normalDbl() * sigmaRotation * 0.01;
+//                  }
+//                  else { // tranlation scale
+//                      newRigidParams[i] += rgen->normalDbl() * sigmaTranslation;
+//                  }
+//              }
+//            proposal = MHFittingParameters(newShapeParams, newRigidParams);
+//          }
+//
+//          virtual double transitionProbability(const MHFittingParameters& start, const MHFittingParameters& end){
+//            return 0.0;
+//          }
+//      };
+      class RandomShapeUpdate : public ProposalGenerator<MHFittingParameters > {
         private:
           double sigmaShape;
-          double sigmaPose;
+          double sigmaTranslation;
+          double sigmaRotation;
           unsigned m_maxNumberOfShapeParameters;
           RandomGenerator* rgen;
 
         public:
-          GaussianModelUpdate( double stepSizeShape, double stepSizePose, unsigned maxNumberOfShapeParameters, RandomGenerator* rgen ) : sigmaShape(stepSizeShape), sigmaPose(stepSizePose), rgen(rgen), m_maxNumberOfShapeParameters(maxNumberOfShapeParameters) {}
+          RandomShapeUpdate( double stepSizeShape, unsigned maxNumberOfShapeParameters, RandomGenerator* rgen )
+                  : sigmaShape(stepSizeShape),  rgen(rgen), m_maxNumberOfShapeParameters(maxNumberOfShapeParameters) {}
 
           // ProposalGeneratorInterface interface
         public:
@@ -369,20 +464,61 @@ namespace statismo {
             }
 
 
-              VectorType newRigidParams = currentSample.GetRigidTransformParameters();
-              for (unsigned i = 0; i < currentSample.GetRigidTransformParameters().size(); ++i) {
-                  if (i < 3) {// rotation parameters
-                    newRigidParams[i] += rgen->normalDbl() * 0.01 * sigmaPose;
-                  }
-                  else { // tranlation scale
-                      newRigidParams[i] += rgen->normalDbl() * sigmaPose;
-                  }
-              }
-            proposal = MHFittingParameters(newShapeParams, newRigidParams);
+            proposal = MHFittingParameters(newShapeParams, currentSample.GetRigidTransformParameters());
           }
 
           virtual double transitionProbability(const MHFittingParameters& start, const MHFittingParameters& end){
             return 0.0;
+          }
+      };
+
+
+        class RotationUpdate : public ProposalGenerator<MHFittingParameters > {
+        private:
+            unsigned m_axis;
+          double m_sigmaRotation;
+          RandomGenerator* m_rgen;
+
+        public:
+            RotationUpdate(unsigned axis, double stepSizeRotation, RandomGenerator* rgen)
+                  : m_axis(axis) , m_sigmaRotation(stepSizeRotation),  m_rgen(rgen) {}
+
+          // ProposalGeneratorInterface interface
+        public:
+          virtual void generateProposal(MHFittingParameters& proposal, const MHFittingParameters& currentSample){
+
+              VectorType newRigidParams = currentSample.GetRigidTransformParameters();
+              newRigidParams[m_axis] += m_rgen->normalDbl() * m_sigmaRotation;
+            proposal = MHFittingParameters( currentSample.GetCoefficients(), newRigidParams);
+          }
+
+          virtual double transitionProbability(const MHFittingParameters& start, const MHFittingParameters& end){
+            return 0.0;
+          }
+      };
+
+
+      class TranslationUpdate : public ProposalGenerator<MHFittingParameters > {
+      private:
+          unsigned m_axis;
+          double m_sigmaTranslation;
+          RandomGenerator* m_rgen;
+
+      public:
+          TranslationUpdate(unsigned axis, double stepSizeTranslations, RandomGenerator* rgen)
+                  : m_axis(axis) , m_sigmaTranslation(stepSizeTranslations),  m_rgen(rgen) {}
+
+          // ProposalGeneratorInterface interface
+      public:
+          virtual void generateProposal(MHFittingParameters& proposal, const MHFittingParameters& currentSample){
+
+              VectorType newRigidParams = currentSample.GetRigidTransformParameters();
+              newRigidParams[3 + m_axis] += m_rgen->normalDbl() * m_sigmaTranslation;
+              proposal = MHFittingParameters( currentSample.GetCoefficients(), newRigidParams);
+          }
+
+          virtual double transitionProbability(const MHFittingParameters& start, const MHFittingParameters& end){
+              return 0.0;
           }
       };
 
@@ -446,6 +582,7 @@ namespace statismo {
           virtual double evalSample(const MHFittingParameters& currentSample) {
 
                 VectorType coefficients = currentSample.GetCoefficients();
+
               return -0.5 * coefficients.size() *log( 2*M_PI ) - 0.5 * coefficients.squaredNorm();
 
           }
@@ -610,10 +747,11 @@ namespace statismo {
           typedef MeshOperations<typename Representer<T>::DatasetPointerType, typename Representer<T>::PointType> ClosestPointType;
           typedef std::map<float, std::vector<VectorType> > LineMapType;
       public:
-          LineEvaluator( const Representer<T>* representer, const ClosestPointType* closestPoint, const vector< PointType >& targetPoints, ActiveShapeModelType* asmodel) :
+          LineEvaluator( const Representer<T>* representer, const ClosestPointType* closestPoint, const vector< PointType >& targetPoints, ActiveShapeModelType* asmodel, double noisevar) :
                   m_targetPoints(targetPoints),
                   m_asmodel(asmodel),
-                  m_closestPoint(closestPoint)
+                  m_closestPoint(closestPoint),
+                  m_noiseVar(noisevar)
           {
 
               // TODO HACK, we separate the points into lines
@@ -627,9 +765,9 @@ namespace statismo {
               }
               std::cout << "number of lines " << m_lineMap.size();
               VectorType mean = VectorType::Zero(1);
-              mean(0) = 0.1;
+              mean(0) = 0.0;
               MatrixType cov = MatrixType::Zero(1,1);
-              cov(0,0)=1;
+              cov(0,0)=m_noiseVar;
                 m_likelihoodModel = MultiVariateNormalDistribution(mean, cov);
           }
 
@@ -638,20 +776,31 @@ namespace statismo {
 
 
           double likelihoodForLine(const std::vector<VectorType> & line, typename RepresenterType::DatasetPointerType sample) {
-              double sumOfsquaraedDistance = 0.0;
+//              double sumOfsquaraedDistance = 0.0;
+//              for( int i = 0; i < m_targetPoints.size(); ++i) {
+//
+//                  PointType closestPtOnSample =  m_closestPoint->findClosestPoint(sample, m_targetPoints[i]).first;
+//                  double d = (closestPtOnSample-m_targetPoints[i]).GetNorm();
+//
+//                  sumOfsquaraedDistance += d * d;
+//              }
+//              double avgDistance = sumOfsquaraedDistance / m_targetPoints.size();
+//              VectorType avgDistanceAsVec(1);
+//              avgDistanceAsVec << avgDistance;
+//              m_likelihoodModel.logpdf(avgDistanceAsVec);
+
+              double sumOfLog = 0.0;
               for( int i = 0; i < m_targetPoints.size(); ++i) {
 
                   PointType closestPtOnSample =  m_closestPoint->findClosestPoint(sample, m_targetPoints[i]).first;
                   double d = (closestPtOnSample-m_targetPoints[i]).GetNorm();
-
-                  sumOfsquaraedDistance += d * d;
+                  VectorType distAsVec(1);
+                  distAsVec << d;
+                  sumOfLog += m_likelihoodModel.logpdf(distAsVec);
               }
-              double avgDistance = sumOfsquaraedDistance / m_targetPoints.size();
-              VectorType avgDistanceAsVec(1);
-              avgDistanceAsVec << avgDistance;
-              m_likelihoodModel.logpdf(avgDistanceAsVec);
+                return sumOfLog;
 
-              return m_likelihoodModel.logpdf(avgDistanceAsVec); ;
+
           }
 
           virtual double evalSample(const MHFittingParameters& currentSample) {
@@ -673,6 +822,7 @@ namespace statismo {
           const ActiveShapeModelType* m_asmodel;
           const ClosestPointType* m_closestPoint;
           LineMapType m_lineMap;
+          double m_noiseVar;
       };
 
 
@@ -831,54 +981,59 @@ namespace statismo {
             RandomGenerator* rGen = new RandomGenerator(42);
             MHFittingParameters init = MHFittingParameters(initialParameters.GetCoefficients(), initialParameters.GetRigidTransformParameters());
 
-              GaussianModelUpdate* shapeUpdateRough = new GaussianModelUpdate(0.1, 0, numPCAComponents, rGen);
-              GaussianModelUpdate* shapeUpdateFine = new GaussianModelUpdate(0.05, 0, numPCAComponents, rGen);
-              GaussianModelUpdate* shapeUpdateFinest = new GaussianModelUpdate(0.01, 0, numPCAComponents, rGen);
-              GaussianModelUpdate* poseUpdateRough = new GaussianModelUpdate(0.0, 0.1, numPCAComponents, rGen);
-              GaussianModelUpdate* poseUpdateFine = new GaussianModelUpdate(0.0, 0.01, numPCAComponents, rGen);
+              RandomShapeUpdate* shapeUpdateRough = new RandomShapeUpdate(0.2, numPCAComponents, rGen);
+              RandomShapeUpdate* shapeUpdateFine = new RandomShapeUpdate(0.1, numPCAComponents, rGen);
+              RandomShapeUpdate* shapeUpdateFinest = new RandomShapeUpdate(0.025, numPCAComponents, rGen);
+              RotationUpdate* rotUpdateX = new RotationUpdate(0, 0.01, rGen);
+              RotationUpdate* rotUpdateY = new RotationUpdate(1, 0.01, rGen);
+              RotationUpdate* rotUpdateZ = new RotationUpdate(2, 0.01, rGen);
 
-            vector< typename RandomProposal< MHFittingParameters >::GeneratorPair> gaussMixtureProposalVector(5);
-            gaussMixtureProposalVector[0] = pair<ProposalGenerator<MHFittingParameters >*, double>(shapeUpdateRough, 0.2);
+              vector< typename RandomProposal< MHFittingParameters >::GeneratorPair> rotUpdateVec(3);
+              rotUpdateVec[0] = pair<ProposalGenerator<MHFittingParameters >*, double>(rotUpdateX, 0.8);
+              rotUpdateVec[1] = pair<ProposalGenerator<MHFittingParameters >*, double>(rotUpdateY, 0.1);
+              rotUpdateVec[2] = pair<ProposalGenerator<MHFittingParameters >*, double>(rotUpdateZ, 0.1);
+              RandomProposal<MHFittingParameters >* rotUpdate = new RandomProposal<MHFittingParameters >(rotUpdateVec, rGen);
+
+              // TODO Note: there is currently no random translation
+
+            vector< typename RandomProposal< MHFittingParameters >::GeneratorPair> gaussMixtureProposalVector(4);
+            gaussMixtureProposalVector[0] = pair<ProposalGenerator<MHFittingParameters >*, double>(shapeUpdateRough, 0.1);
             gaussMixtureProposalVector[1] = pair<ProposalGenerator<MHFittingParameters >*, double>(shapeUpdateFine, 0.2);
-              gaussMixtureProposalVector[2] = pair<ProposalGenerator<MHFittingParameters >*, double>(shapeUpdateFinest, 0.2);
-            gaussMixtureProposalVector[3] = pair<ProposalGenerator<MHFittingParameters >*, double>(poseUpdateRough, 0.1);
-              gaussMixtureProposalVector[4] = pair<ProposalGenerator<MHFittingParameters >*, double>(poseUpdateFine, 0.2);
+              gaussMixtureProposalVector[2] = pair<ProposalGenerator<MHFittingParameters >*, double>(shapeUpdateFinest, 0.4);
+            gaussMixtureProposalVector[3] = pair<ProposalGenerator<MHFittingParameters >*, double>(rotUpdate, 0.2);
+
 
             RandomProposal<MHFittingParameters >* gaussMixtureProposal = new RandomProposal<MHFittingParameters >(gaussMixtureProposalVector, rGen);
 
             Gaussian3DPositionDifferenceEvaluator* diffEval = new Gaussian3DPositionDifferenceEvaluator(asmodel->GetRepresenter(), 1.0);
             PointEvaluator<T>* pointEval = new PointEvaluator<T>(representer, meshOperations, correspondencePoints, asmodel, diffEval);
-              LineEvaluator<T>* lineEval = new LineEvaluator<T>(representer, meshOperations, targetPoints, asmodel);
+              LineEvaluator<T>* lineEval = new LineEvaluator<T>(representer, meshOperations, targetPoints, asmodel, 0.1);
 
             ModelPriorEvaluator* modelPriorEvaluator = new ModelPriorEvaluator();
 
             InLungOrBoneEvaluator<T>* huEvaluator = new InLungOrBoneEvaluator<T>(representer, meshOperations, asmodel);
 
             std::vector<DistributionEvaluator<MHFittingParameters >*> huEvaluatorList;
-                huEvaluatorList.push_back(huEvaluator);
-            huEvaluatorList.push_back(modelPriorEvaluator);
+              //  huEvaluatorList.push_back(huEvaluator);
+            //huEvaluatorList.push_back(modelPriorEvaluator);
 //              huEvaluatorList.push_back(pointEval);
-//              huEvaluatorList.push_back(lineEval);
+              huEvaluatorList.push_back(lineEval);
 
 
               QuietLogger<MHFittingParameters>* ql = new QuietLogger<MHFittingParameters>();
               InLungLogger <T>* loggerFilterChain = new InLungLogger<T>(representer, meshOperations, "filter chain");
             MarkovChain<MHFittingParameters >* huChain = new MetropolisHastings<MHFittingParameters >(gaussMixtureProposal, new ProductEvaluator<MHFittingParameters>(huEvaluatorList), ql, init, rGen);
-            MarkovChainProposal<MHFittingParameters>* huChainProposal = new MarkovChainProposal<MHFittingParameters>(huChain, 10);
+            MarkovChainProposal<MHFittingParameters>* huChainProposal = new MarkovChainProposal<MHFittingParameters>(huChain, 1, true);
 
-              vector< typename RandomProposal< MHFittingParameters >::GeneratorPair> huAndRWMixtureProposalVector(2);
-              huAndRWMixtureProposalVector[0] = pair<ProposalGenerator<MHFittingParameters >*, double>(huChainProposal, 0.5);
-              huAndRWMixtureProposalVector[1] = pair<ProposalGenerator<MHFittingParameters >*, double>(gaussMixtureProposal, 0.5);
-              RandomProposal<MHFittingParameters >* huAndRWMixtureProposal = new RandomProposal<MHFittingParameters >(huAndRWMixtureProposalVector, rGen);
 
             std::vector<DistributionEvaluator<MHFittingParameters >*> lmAndHuEvaluatorList;
-                lmAndHuEvaluatorList.push_back(pointEval);
-              lmAndHuEvaluatorList.push_back(lineEval);
+                //lmAndHuEvaluatorList.push_back(pointEval);
+              //lmAndHuEvaluatorList.push_back(lineEval);
               lmAndHuEvaluatorList.push_back(huEvaluator);
               lmAndHuEvaluatorList.push_back(modelPriorEvaluator);
 
               InLungLogger <T>* loggerFinalChain = new InLungLogger<T>(representer, meshOperations, "final chain");
-            MarkovChain<MHFittingParameters >* lmAndHuChain = new MetropolisHastings<MHFittingParameters >(huAndRWMixtureProposal, new ProductEvaluator<MHFittingParameters>(lmAndHuEvaluatorList), loggerFinalChain, init, rGen);
+            MarkovChain<MHFittingParameters >* lmAndHuChain = new MetropolisHastings<MHFittingParameters >(huChainProposal, new ProductEvaluator<MHFittingParameters>(lmAndHuEvaluatorList), loggerFinalChain, init, rGen);
             return lmAndHuChain;
           }
 
@@ -920,27 +1075,61 @@ namespace statismo {
             ActiveShapeModelType* asmodel,
             MHFittingParameters& initialParameters,
             ChainLogger<MHFittingParameters>* logger = new QuietLogger<MHFittingParameters>()) {
-              unsigned numPCAComponents = 10;
+
+              unsigned numPCAComponents = asmodel->GetStatisticalModel()->GetNumberOfPrincipalComponents();
 
             // basics
             RandomGenerator* rGen = new RandomGenerator(42);
 
 
-            GaussianModelUpdate* poseProposalRough = new GaussianModelUpdate(0.1, 1, numPCAComponents, rGen);
-            GaussianModelUpdate* poseProposalFine = new GaussianModelUpdate(0.05, 0.3, numPCAComponents, rGen);
-            GaussianModelUpdate* poseProposalFinest = new GaussianModelUpdate(0.01, 0.1, numPCAComponents, rGen);
+              RotationUpdate* rotUpdateX = new RotationUpdate(0, 0.01, rGen);
+              RotationUpdate* rotUpdateY = new RotationUpdate(1, 0.01, rGen);
+              RotationUpdate* rotUpdateZ = new RotationUpdate(2, 0.01, rGen);
+
+              vector< typename RandomProposal< MHFittingParameters >::GeneratorPair> rotUpdateVec(3);
+              rotUpdateVec[0] = pair<ProposalGenerator<MHFittingParameters >*, double>(rotUpdateX, 0.6);
+              rotUpdateVec[1] = pair<ProposalGenerator<MHFittingParameters >*, double>(rotUpdateY, 0.2);
+              rotUpdateVec[2] = pair<ProposalGenerator<MHFittingParameters >*, double>(rotUpdateZ, 0.2);
+              RandomProposal<MHFittingParameters >* rotUpdate = new RandomProposal<MHFittingParameters >(rotUpdateVec, rGen);
 
 
-            vector< typename RandomProposal< MHFittingParameters >::GeneratorPair> gaussMixtureProposalVector(3);
-            gaussMixtureProposalVector[0] = pair<ProposalGenerator<MHFittingParameters >*, double>(poseProposalRough, 10);
-            gaussMixtureProposalVector[1] = pair<ProposalGenerator<MHFittingParameters >*, double>(poseProposalFine, 1);
-            gaussMixtureProposalVector[2] = pair<ProposalGenerator<MHFittingParameters >*, double>(poseProposalFinest, 0.1);
+              TranslationUpdate* transUpdateXSmall = new TranslationUpdate(0, 1, rGen);
+              TranslationUpdate* transUpdateYSmall = new TranslationUpdate(1, 1, rGen);
+              TranslationUpdate* transUpdateZSmall = new TranslationUpdate(2, 1, rGen);
+              TranslationUpdate* transUpdateXLarge = new TranslationUpdate(0, 10, rGen);
+              TranslationUpdate* transUpdateYLarge = new TranslationUpdate(1, 10, rGen);
+              TranslationUpdate* transUpdateZLarge = new TranslationUpdate(2, 10, rGen);
+
+
+              vector< typename RandomProposal< MHFittingParameters >::GeneratorPair> transUpdateVec(6);
+              transUpdateVec[0] = pair<ProposalGenerator<MHFittingParameters >*, double>(transUpdateXSmall, 0.1);
+              transUpdateVec[1] = pair<ProposalGenerator<MHFittingParameters >*, double>(transUpdateYSmall, 0.1);
+              transUpdateVec[2] = pair<ProposalGenerator<MHFittingParameters >*, double>(transUpdateZSmall, 0.1);
+              transUpdateVec[3] = pair<ProposalGenerator<MHFittingParameters >*, double>(transUpdateXLarge, 0.1);
+              transUpdateVec[4] = pair<ProposalGenerator<MHFittingParameters >*, double>(transUpdateYLarge, 0.1);
+              transUpdateVec[5] = pair<ProposalGenerator<MHFittingParameters >*, double>(transUpdateZLarge, 0.1);
+
+              RandomProposal<MHFittingParameters >* transUpdate = new RandomProposal<MHFittingParameters >(transUpdateVec, rGen);
+
+
+              // TODO Note: there is currently no random translation
+              RandomShapeUpdate* shapeUpdateRough = new RandomShapeUpdate(0.1, numPCAComponents, rGen);
+              RandomShapeUpdate* shapeUpdateFine = new RandomShapeUpdate(0.05, numPCAComponents, rGen);
+              RandomShapeUpdate* shapeUpdateFinest = new RandomShapeUpdate(0.01, numPCAComponents, rGen);
+
+              vector< typename RandomProposal< MHFittingParameters >::GeneratorPair> gaussMixtureProposalVector(5);
+
+              gaussMixtureProposalVector[0] = pair<ProposalGenerator<MHFittingParameters >*, double>(shapeUpdateRough, 0.1);
+              gaussMixtureProposalVector[1] = pair<ProposalGenerator<MHFittingParameters >*, double>(shapeUpdateFine, 0.1);
+              gaussMixtureProposalVector[2] = pair<ProposalGenerator<MHFittingParameters >*, double>(shapeUpdateFinest, 0.1);
+              gaussMixtureProposalVector[3] = pair<ProposalGenerator<MHFittingParameters >*, double>(rotUpdate, 0.1);
+              gaussMixtureProposalVector[4] = pair<ProposalGenerator<MHFittingParameters >*, double>(transUpdate, 0.1);
 
             RandomProposal<MHFittingParameters >* gaussMixtureProposal = new RandomProposal<MHFittingParameters >(gaussMixtureProposalVector, rGen);
 
             Gaussian3DPositionDifferenceEvaluator* diffEval = new Gaussian3DPositionDifferenceEvaluator(asmodel->GetRepresenter(), 1.0);
             PointEvaluator<T>* pointEval = new PointEvaluator<T>(representer, closestPoint, correspondencePoints, asmodel, diffEval);
-              LineEvaluator<T>* lineEval = new LineEvaluator<T>(representer, closestPoint, targetPoints, asmodel);
+              LineEvaluator<T>* lineEval = new LineEvaluator<T>(representer, closestPoint, targetPoints, asmodel, 3.0);
 
               ModelPriorEvaluator* modelPriorEvaluator = new ModelPriorEvaluator();
 

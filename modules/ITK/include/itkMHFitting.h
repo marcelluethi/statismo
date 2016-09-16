@@ -329,6 +329,8 @@ namespace itk {
                                      const std::vector<PointType> &targetPoints) {
             statismo::MHFittingParameters lastParameters;
             m_chain->current(lastParameters);
+            std::cout << "last rigid parameters " << lastParameters.GetRigidTransformParameters() << std::endl;
+            std::cout << "last sahpe parameters " << lastParameters.GetCoefficients() << std::endl;
             return BasicSamplingType::estimatePointUncertaintyForInitialPoseChain(
                     m_model->GetStatisticalModel()->GetRepresenter(), m_meshOperations, correspondencePoints,
                     targetPoints, m_model->GetstatismoImplObj(), lastParameters);
