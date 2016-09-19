@@ -51,6 +51,7 @@
 #include "itkLinearInterpolateImageFunction.h"
 #include "itkTriangleMeshAdapter.h"
 #include "itkTransformMeshFilter.h"
+#include "Sampling/Logger/BestMatchLogger.h"
 
 namespace itk {
 
@@ -310,7 +311,7 @@ namespace itk {
             m_configuration = configuration;
             m_meshOperations = new itkMeshOperations(model->GetStatisticalModel()->GetstatismoImplObj(), targetImage, transform->GetCenter()) ;// TODO this is a memory leak - there must be a better way
             m_preprocessedTargetImage = preprocessedTargetImage;
-
+            m_bestMatchLogger = new sampling::BestMatchLogger<statismo::MHFittingParameters>();
 
 
             // TODO need pass trough all parameters
@@ -321,8 +322,8 @@ namespace itk {
 
             statismo::MHFittingParameters initialParameters(coeffs, fromVnlVector(transform->GetParameters()));
 
-          m_chain = BasicSamplingType::buildInitialPoseChain(m_model->GetStatisticalModel()->GetRepresenter(), m_meshOperations, correspondencePoints, targetPoints, m_model->GetstatismoImplObj(), initialParameters);
-            std::cout << "uncertainty " << std::endl;
+          m_chain = BasicSamplingType::buildInitialPoseChain(m_model->GetStatisticalModel()->GetRepresenter(), m_meshOperations, correspondencePoints, targetPoints, m_model->GetstatismoImplObj(), initialParameters, m_bestMatchLogger);
+
         }
 
         std::map<unsigned, statismo::MultiVariateNormalDistribution> computePointUncertainty(const CorrespondencePoints correspondencePoints,
@@ -340,7 +341,7 @@ namespace itk {
         void SetChainToLmAndHU(const CorrespondencePoints correspondencePoints, const std::vector<PointType>& targetPoints, itk::Rigid3DTransform<float>* transform, statismo::VectorType coeffs) {
             statismo::MHFittingParameters initialParameters(coeffs, fromVnlVector(transform->GetParameters()));
             std::cout << "transform parameters in hu chain " << fromVnlVector(transform->GetParameters()) << std::endl;
-            m_chain = BasicSamplingType::buildLmAndHuChain(m_model->GetStatisticalModel()->GetRepresenter(), m_meshOperations, correspondencePoints, targetPoints, m_model->GetstatismoImplObj(), initialParameters);
+            m_chain = BasicSamplingType::buildLmAndHuChain(m_model->GetStatisticalModel()->GetRepresenter(), m_meshOperations, correspondencePoints, targetPoints, m_model->GetstatismoImplObj(), initialParameters, m_bestMatchLogger);
         }
 
 
@@ -381,9 +382,10 @@ namespace itk {
         void NextSample() {
             ImplType *impl = ImplType::Create(m_chain);
 
-            statismo::MHFittingParameters result = impl->Perform();
+            statismo::MHFittingParameters currentParameters = impl->Perform();
+            statismo::MHFittingParameters bestParameters = m_bestMatchLogger->getBest();
             m_result = ResultType::New();
-            m_result->SetInternalData(m_meshOperations, result);
+            m_result->SetInternalData(m_meshOperations, bestParameters);
 
             delete impl;
         }
@@ -406,6 +408,7 @@ namespace itk {
         SamplerPointerType m_sampler;
         ConfigurationType m_configuration;
         itkMeshOperations* m_meshOperations;
+        sampling::BestMatchLogger<statismo::MHFittingParameters>* m_bestMatchLogger;
         typename ResultType::Pointer m_result;
     };
 

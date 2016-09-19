@@ -271,10 +271,13 @@ namespace statismo {
           typedef unsigned int PointId;
 
       public:
-          typedef MeshOperations<typename Representer<T>::DatasetPointerType, typename Representer<T>::PointType> MeshOperationsType;
-          InLungLogger(const Representer<T>* representer, const MeshOperationsType* meshOps, const char* loggerName)
 
-                  : m_representer(representer),
+
+          typedef MeshOperations<typename Representer<T>::DatasetPointerType, typename Representer<T>::PointType> MeshOperationsType;
+          InLungLogger(ChainLogger<MHFittingParameters>* otherLogger, const Representer<T>* representer, const MeshOperationsType* meshOps, const char* loggerName)
+
+                  : m_compositeLogger(otherLogger),
+                    m_representer(representer),
                     m_meshOps(meshOps),
                     m_loggerName(loggerName)
           {
@@ -293,7 +296,7 @@ namespace statismo {
           ) {
 
 
-
+              m_compositeLogger->notifyAccept(parameters, dProbValue, proposal, evaluator);
 
 
               typename Representer<T>::DatasetPointerType sample = m_meshOps->transformMesh(parameters);
@@ -326,7 +329,10 @@ namespace statismo {
                   const double& dProbValue,
                   ProposalGeneratorInterface<MHFittingParameters>* proposal,
                   DistributionEvaluatorInterface<MHFittingParameters>* evaluator
-          ) {}
+          ) {
+              m_compositeLogger->notifyReject(sample, dProbValue, proposal, evaluator);
+
+          }
 
           /** \brief Function gets called whenever an algorithm is reset to a new state */
           virtual void notifyReset (
@@ -334,11 +340,15 @@ namespace statismo {
                   const double& dProbValue,
                   ProposalGeneratorInterface<MHFittingParameters>* proposal,
                   DistributionEvaluatorInterface<MHFittingParameters>* evaluator
-          ) {}
+          ) {
+              m_compositeLogger->notifyReset(state, dProbValue, proposal, evaluator);
+          }
+
 
 
 
       private:
+          ChainLogger<MHFittingParameters>* m_compositeLogger;
           const Representer<T>* m_representer;
           const MeshOperationsType* m_meshOps;
           const char* m_loggerName;
@@ -973,7 +983,8 @@ namespace statismo {
             CorrespondencePoints correspondencePoints,
             vector<PointType> targetPoints,
             ActiveShapeModelType* asmodel,
-            MHFittingParameters& initialParameters) {
+            MHFittingParameters& initialParameters,
+            ChainLogger<MHFittingParameters>* logger ) {
 
               unsigned numPCAComponents = asmodel->GetStatisticalModel()->GetNumberOfPrincipalComponents();
 
@@ -1021,7 +1032,7 @@ namespace statismo {
 
 
               QuietLogger<MHFittingParameters>* ql = new QuietLogger<MHFittingParameters>();
-              InLungLogger <T>* loggerFilterChain = new InLungLogger<T>(representer, meshOperations, "filter chain");
+              InLungLogger <T>* loggerFilterChain = new InLungLogger<T>(logger, representer, meshOperations, "filter chain");
             MarkovChain<MHFittingParameters >* huChain = new MetropolisHastings<MHFittingParameters >(gaussMixtureProposal, new ProductEvaluator<MHFittingParameters>(huEvaluatorList), ql, init, rGen);
             MarkovChainProposal<MHFittingParameters>* huChainProposal = new MarkovChainProposal<MHFittingParameters>(huChain, 1, true);
 
@@ -1032,8 +1043,8 @@ namespace statismo {
               lmAndHuEvaluatorList.push_back(huEvaluator);
               lmAndHuEvaluatorList.push_back(modelPriorEvaluator);
 
-              InLungLogger <T>* loggerFinalChain = new InLungLogger<T>(representer, meshOperations, "final chain");
-            MarkovChain<MHFittingParameters >* lmAndHuChain = new MetropolisHastings<MHFittingParameters >(huChainProposal, new ProductEvaluator<MHFittingParameters>(lmAndHuEvaluatorList), loggerFinalChain, init, rGen);
+              //InLungLogger <T>* loggerFinalChain = new InLungLogger<T>(representer, meshOperations, "final chain");
+            MarkovChain<MHFittingParameters >* lmAndHuChain = new MetropolisHastings<MHFittingParameters >(huChainProposal, new ProductEvaluator<MHFittingParameters>(lmAndHuEvaluatorList), loggerFilterChain, init, rGen);
             return lmAndHuChain;
           }
 
@@ -1074,7 +1085,7 @@ namespace statismo {
             vector<PointType> targetPoints,
             ActiveShapeModelType* asmodel,
             MHFittingParameters& initialParameters,
-            ChainLogger<MHFittingParameters>* logger = new QuietLogger<MHFittingParameters>()) {
+            ChainLogger<MHFittingParameters>* logger ) {
 
               unsigned numPCAComponents = asmodel->GetStatisticalModel()->GetNumberOfPrincipalComponents();
 

@@ -134,9 +134,9 @@ int main(int argc, char *argv[]) {
     //reader->SetFileName("/export/skulls/data/shapes/ulna-right/aligned/initial/volume-ct/downsampled-2/vsd-0.nii");
     //reader->SetFileName("/export/skulls/data/shapes/esophagus/raw/normalized-varian/volume-ct/varian-0021.nii");
     //reader->SetFileName("/export/skulls/data/shapes/esophagus/raw/normalized-varian/volume-ct/varian-0001.nii");
-    reader->SetFileName("/home/luetma00/Download/LUCRUSH02.vtk");
+    //reader->SetFileName("/home/luetma00/Download/LUCRUSH02.vtk");
     //reader->SetFileName("/home/luetma00/Download/LUCRU2.vtk");
-    //reader->SetFileName("/tmp/lucrush03-0.vtk");
+    reader->SetFileName("/tmp/lucrush03-0.vtk");
 ////    reader->SetFileName("//home/marcel/data/ulna-right/test/image.nii");
 
     reader->Update();
@@ -148,8 +148,8 @@ int main(int argc, char *argv[]) {
     //reader->SetFileName("/export/skulls/data/shapes/ulna-right/aligned/initial/volume-ct/downsampled-2/vsd-0.nii");
     //shortreader->SetFileName("/export/skulls/data/shapes/esophagus/raw/normalized-varian/volume-ct/varian-0021.nii");
     //shortreader->SetFileName("/export/skulls/data/shapes/esophagus/raw/normalized-varian/volume-ct/varian-0001.nii");
-    shortreader->SetFileName("/home/luetma00/Download/LUCRUSH02.vtk");
-    //shortreader->SetFileName("/tmp/lucrush03-0.nii");
+    //shortreader->SetFileName("/home/luetma00/Download/LUCRUSH02.vtk");
+    shortreader->SetFileName("/tmp/lucrush03-0.nii");
     shortreader->Update();
     ShortImageType::Pointer shortImage = shortreader->GetOutput();
 
@@ -166,16 +166,16 @@ int main(int argc, char *argv[]) {
     std::vector<PointType> linePoints;
     //linePoints = readLandmarksFile<MeshType>(std::string("/tmp/lucrush2-lms.csv"));
     //linePoints = readLandmarksFile<MeshType>(std::string("/tmp/varian-0001-line-lms.csv"));
-    //linePoints = readLandmarksFile<MeshType>(std::string("/tmp/lucrush3-line-lms.csv"));
-    linePoints = readLandmarksFile<MeshType>(std::string("/home/luetma00/Download/LUCRUSH02-line-lms.csv"));
+    linePoints = readLandmarksFile<MeshType>(std::string("/tmp/lucrush3-line-lms.csv"));
+    //linePoints = readLandmarksFile<MeshType>(std::string("/home/luetma00/Download/LUCRUSH02-line-lms.csv"));
     //linePoints = readLandmarksFile<MeshType>(std::string("/tmp/0021lms-line.csv"));
     // Get poitn ids of reference and target points
     std::vector<PointType> refPoints;
     refPoints = readLandmarksFile<MeshType>(std::string("/tmp/fancylms.csv"));
 
     std::vector<PointType> targetPoints;
-    //targetPoints = readLandmarksFile<MeshType>(std::string("/tmp/lucrush3-lms.csv"));
-    targetPoints = readLandmarksFile<MeshType>(std::string("/home/luetma00/Download/LUCRUSH02-lms.csv"));
+    targetPoints = readLandmarksFile<MeshType>(std::string("/tmp/lucrush3-lms.csv"));
+    //targetPoints = readLandmarksFile<MeshType>(std::string("/home/luetma00/Download/LUCRUSH02-lms.csv"));
     //targetPoints = readLandmarksFile<MeshType>(std::string("//tmp/varian-0001-lm.csv"));
     //targetPoints = readLandmarksFile<MeshType>(std::string("/tmp/0021lms.csv"));
 
