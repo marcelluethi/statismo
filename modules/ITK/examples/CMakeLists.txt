@@ -14,7 +14,7 @@ include_directories(${statismo_INCLUDE_DIRS} ${thrift_INCLUDE_DIR} ${statismoui_
 link_directories( ${ITK_LIBRARY_DIRS} optimized ${statismo_LIBRARY_DIRS} ${statismoui_DIR}/lib ${thrift_LIBRARY_DIR})
 
 set( _examples
-        itkMHFittingTest
+  itkMHFittingTest
   itkActiveShapeModelTest
   itkBuildGaussianProcessDeformationModel
   itkBuildShapeModel_75pcvar
@@ -31,4 +31,5 @@ foreach( e ${_examples} )
   add_executable( ${e} ${e}.cxx
   )
   target_link_libraries( ${e} statismo_core ${ITK_LIBRARIES} statismo-ui thrift )
+  target_link_libraries( ${e} statismo_core ${ITK_LIBRARIES} )
 endforeach()

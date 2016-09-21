@@ -91,9 +91,10 @@ namespace statismo {
       MHFittingParameters() {
       }
 
-      MHFittingParameters(VectorType coefficients, VectorType rigidParameters) :
+      MHFittingParameters(VectorType coefficients, VectorType rigidParameters, VectorType rotationCenter) :
         m_coefficients(coefficients),
-        m_rigidParameters(rigidParameters) { }
+        m_rigidParameters(rigidParameters),
+        m_rotationCenter(rotationCenter) { }
 
       VectorType GetCoefficients() const {
         return m_coefficients;
@@ -101,6 +102,9 @@ namespace statismo {
 
       VectorType GetRigidTransformParameters() const {
         return m_rigidParameters;
+      }
+      VectorType GetRotationCenter() const {
+          return m_rotationCenter;
       }
 
 
@@ -118,6 +122,7 @@ namespace statismo {
     private:
       VectorType m_coefficients;
         VectorType m_rigidParameters;
+      VectorType m_rotationCenter;
   };
 
 
@@ -474,7 +479,7 @@ namespace statismo {
             }
 
 
-            proposal = MHFittingParameters(newShapeParams, currentSample.GetRigidTransformParameters());
+            proposal = MHFittingParameters(newShapeParams, currentSample.GetRigidTransformParameters(), currentSample.GetRotationCenter());
           }
 
           virtual double transitionProbability(const MHFittingParameters& start, const MHFittingParameters& end){
@@ -499,7 +504,7 @@ namespace statismo {
 
               VectorType newRigidParams = currentSample.GetRigidTransformParameters();
               newRigidParams[m_axis] += m_rgen->normalDbl() * m_sigmaRotation;
-            proposal = MHFittingParameters( currentSample.GetCoefficients(), newRigidParams);
+            proposal = MHFittingParameters( currentSample.GetCoefficients(), newRigidParams, currentSample.GetRotationCenter());
           }
 
           virtual double transitionProbability(const MHFittingParameters& start, const MHFittingParameters& end){
@@ -524,7 +529,7 @@ namespace statismo {
 
               VectorType newRigidParams = currentSample.GetRigidTransformParameters();
               newRigidParams[3 + m_axis] += m_rgen->normalDbl() * m_sigmaTranslation;
-              proposal = MHFittingParameters( currentSample.GetCoefficients(), newRigidParams);
+              proposal = MHFittingParameters( currentSample.GetCoefficients(), newRigidParams, currentSample.GetRotationCenter());
           }
 
           virtual double transitionProbability(const MHFittingParameters& start, const MHFittingParameters& end){
@@ -990,7 +995,7 @@ namespace statismo {
 
             // basics
             RandomGenerator* rGen = new RandomGenerator(42);
-            MHFittingParameters init = MHFittingParameters(initialParameters.GetCoefficients(), initialParameters.GetRigidTransformParameters());
+            MHFittingParameters init = MHFittingParameters(initialParameters.GetCoefficients(), initialParameters.GetRigidTransformParameters(), initialParameters.GetRotationCenter());
 
               RandomShapeUpdate* shapeUpdateRough = new RandomShapeUpdate(0.2, numPCAComponents, rGen);
               RandomShapeUpdate* shapeUpdateFine = new RandomShapeUpdate(0.1, numPCAComponents, rGen);
@@ -1210,7 +1215,7 @@ namespace statismo {
         // runs a markov chain and returns only the accepted proposals
         MHFittingParameters params;//(m_sourceTransform,m_sourceCoefficients);
         m_chain->next(params);
-        MHFittingParameters mhResult(params.GetCoefficients(), params.GetRigidTransformParameters());
+        MHFittingParameters mhResult(params.GetCoefficients(), params.GetRigidTransformParameters(), params.GetRotationCenter());
         return mhResult;
       }
 
