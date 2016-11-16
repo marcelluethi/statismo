@@ -4,7 +4,7 @@ set( _ITKTests
 )
 
 foreach( _test ${_ITKTests} )
-  add_executable( ${_test} ${_test}.cxx )
+  add_executable( ${_test} ${_test}.cxx ../MHFitting/Types.h)
   target_link_libraries( ${_test} statismo_core ${ITK_LIBRARIES} )
 endforeach()
 

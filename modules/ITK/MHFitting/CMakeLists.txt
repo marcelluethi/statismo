@@ -14,16 +14,7 @@ include_directories(${statismo_INCLUDE_DIRS} ${thrift_INCLUDE_DIR} ${statismoui_
 link_directories( ${ITK_LIBRARY_DIRS} optimized ${statismo_LIBRARY_DIRS} ${statismoui_DIR}/lib ${thrift_LIBRARY_DIR})
 
 set( _examples
-  itkActiveShapeModelTest
-  itkBuildGaussianProcessDeformationModel
-  itkBuildShapeModel_75pcvar
-  itkLandmarkConstrainedShapeModelFitting
-  itkShapeModelFitting
-  itkBuildDeformationModel
-  itkBuildShapeModel
-  itkDeformationModelFitting
-  itkLowRankGaussianProcessImageToImageRegistration
-  itkSimpleGaussianProcessImageToImageRegistration
+   itkMHFittingTest
 )
 
 foreach( e ${_examples} )

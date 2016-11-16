@@ -16,8 +16,6 @@
 #include "itkASMGaussianGradientImagePreprocessor.h"
 #include "itkActiveShapeModel.h"
 #include "itkASMFitting.h"
-#include "MHFitting.h"
-#include "itkMHFitting.h"
 #include "itkMeshFileWriter.h"
 #include "itkTimeProbe.h"
 #include "itkMeshFileReader.h"
@@ -25,7 +23,8 @@
 #include "itkReducedVarianceModelBuilder.h"
 //#include "itkRigidTransformModelBuilder.h"
 #include "itkPosteriorModelBuilder.h"
-
+#include "itkASMIdentityImagePreprocessor.h"
+#include "itkMHFitting.h"
 
 typedef itk::Mesh<float, 3> MeshType;
 typedef itk::Image<float, 3> ImageType;
@@ -98,8 +97,8 @@ PointType computeCenterOfMass(const std::vector<PointType>& points) {
 
 ActiveShapeModelType::Pointer loadASM(const std::string& filename) {
     statismo::ASMFeatureExtractorFactory<MeshType, ImageType>::RegisterImplementation(itk::ASMNormalDirectionFeatureExtractorFactory<MeshType, ImageType>::GetInstance());
-    statismo::ASMImagePreprocessorFactory<MeshType, ImageType>::RegisterImplementation(itk::ASMGaussianGradientImagePreprocessorFactory<MeshType, ImageType>::GetInstance());
-
+    //statismo::ASMImagePreprocessorFactory<MeshType, ImageType>::RegisterImplementation(itk::ASMGaussianGradientImagePreprocessorFactory<MeshType, ImageType>::GetInstance());
+    statismo::ASMImagePreprocessorFactory<MeshType, ImageType>::RegisterImplementation(itk::ASMIdentityImagePreprocessorFactory<MeshType, ImageType>::GetInstance());
     ActiveShapeModelType::Pointer asmodel = ActiveShapeModelType::New();
     RepresenterType::Pointer representer = RepresenterType::New();
     asmodel->Load(representer,  filename.c_str());
@@ -179,22 +178,22 @@ FittingResultType::Pointer fitPose( StatismoUI::StatismoUI& ui,
              const std::vector<PointType>& linePoints,
              ActiveShapeModelType* model,
              SamplerType* fitSampler,
-                           statismo::MHFittingConfiguration  configuration,
+                           mhfitting::MHFittingConfiguration  configuration,
              itk::VersorRigid3DTransform<float>* transform,
              statismo::VectorType coeffs) {
 
-    itk::VersorRigid3DTransform<float>::Pointer currentTransform = transform->Clone();
+    itk::VersorRigid3DTransform<float>::Pointer currentRigidTransform = transform->Clone();
 
         // very ITK unlike, we use a init method instead of setting all fields manually.
     // This avoids 99% of all core dumps :-)
     FittingStepType::Pointer fittingStep = FittingStepType::New();
-    fittingStep->init(image, preprocessedImage, correspondingPoints, linePoints, model, FittingStepType::SamplerPointerType(fitSampler), configuration, currentTransform, coeffs);
-
+    fittingStep->init(image, preprocessedImage, correspondingPoints, linePoints, model, FittingStepType::SamplerPointerType(fitSampler), configuration, currentRigidTransform, coeffs);
+    fittingStep->SetChainToPoseOnly(correspondingPoints, linePoints, transform, coeffs);
     std::cout << "Initialization done." << std::endl;
 
     vnl_vector<float> lastCoeffs;
     itk::OptimizerParameters<float> lastTransformParameters;
-    for (int i =1; i <= 2000; ++i) {
+    for (int i =1; i <= 100; ++i) {
         FittingResultType::Pointer result;
 
         fittingStep->NextSample();
@@ -202,25 +201,19 @@ FittingResultType::Pointer fitPose( StatismoUI::StatismoUI& ui,
 
 
         if (lastTransformParameters != result->GetRigidTransformParameters() || lastCoeffs != result->GetCoefficients()) {
-            ssmTransformationView.SetPoseTransformation(StatismoUI::PoseTransformation(currentTransform)).SetShapeTransformation(result->GetCoefficients());
+            ssmTransformationView.SetPoseTransformation(StatismoUI::PoseTransformation(currentRigidTransform)).SetShapeTransformation(result->GetCoefficients());
             ui.updateShapeModelTransformationView(ssmTransformationView);
             lastTransformParameters = result->GetRigidTransformParameters();
             lastCoeffs = result->GetCoefficients();
         }
 
-
-
-        currentTransform->SetParameters(result->GetRigidTransformParameters());
-
+        currentRigidTransform->SetParameters(result->GetRigidTransformParameters());
 
         std::cout << "Done with iteration " << i << std::endl;
-
-
-
     }
 
 
-    std::cout << "current transform " << currentTransform << std::endl;
+    std::cout << "current transform " << currentRigidTransform << std::endl;
     FittingResultType::Pointer result = fittingStep->GetOutput();
     return result;
 }
@@ -234,7 +227,7 @@ FittingResultType::Pointer fitWithHU( StatismoUI::StatismoUI& ui,
                                     const std::vector<PointType>& linePoints,
                                     ActiveShapeModelType* model,
                                     SamplerType* fitSampler,
-                                    statismo::MHFittingConfiguration  configuration,
+                                    mhfitting::MHFittingConfiguration  configuration,
                                     itk::VersorRigid3DTransform<float>* transform,
                                     vnl_vector<float> coeffs) {
 
@@ -285,7 +278,7 @@ void computePosteriorModel(
         vnl_vector<float> lastModelCoefficientsPoseModel,
         ActiveShapeModelType* flexibleModel,
         SamplerType* fitSampler,
-        statismo::MHFittingConfiguration  configuration,
+        mhfitting::MHFittingConfiguration  configuration,
         itk::VersorRigid3DTransform<float>* initialTransform,
         //statismo::VectorType coeffs,
         ActiveShapeModelType* resultingPosteriorModel,
@@ -355,19 +348,19 @@ void computePosteriorModel(
 int main(int argc, char *argv[]) {
 
     // parameters, file names, etc.
-    std::string flexibleModelName("/home/luetma00/data/esophagus/test//reference//fancyasm5.h5");
-    std::string pcaModelName("/home/luetma00/data/esophagus/test//reference/asm-pca.h5");
-    std::string imageFilename("/home/luetma00/data/esophagus/test/0021/varian-0021.nii");
-    std::string targetLinePointsFilename("/home/luetma00/data/esophagus/test/0021/0021lms-line.csv");
-    std::string referenceLandmarkPointsFilename("/home/luetma00/data/esophagus/test//reference/fancylms.csv");
-    std::string targetLandmarkPointsFilename("/home/luetma00/data/esophagus/test/0021/0021lms.csv");
+    std::string flexibleModelName("/home/luetma00/workspaces/projects/varian/data/asm-pca-all-data-localized.h5");
+    std::string pcaModelName("/home/luetma00/workspaces/projects/varian/data/asm-pca-all-data-localized.h5");
+    std::string imageFilename("/export/skulls/data/shapes/esophagus/varian/raw/normalized/volume-ct/varian-0001.nii");
+    std::string targetLinePointsFilename("/tmp/varian-0001-line-lms.csv");
+    std::string referenceLandmarkPointsFilename("/tmp/ref-lms.csv");
+    std::string targetLandmarkPointsFilename("/tmp/varian-0001-lm.csv");
 
     // configuring the asm and the mh fitting.
     SamplerType::Pointer fitSampler = itk::ASMNormalDirectionPointSampler<MeshType, ImageType>::New();
     fitSampler->SetNumberOfPoints(25);
     fitSampler->SetPointSpacing(1);
     statismo::ASMFittingConfiguration asmFitConfig(3,5,3);
-    statismo::MHFittingConfiguration mhFitConfig(asmFitConfig);
+    mhfitting::MHFittingConfiguration mhFitConfig(asmFitConfig);
 
 
     // set up the ui

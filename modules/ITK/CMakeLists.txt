@@ -25,6 +25,9 @@ if( ${BUILD_CLI_TOOLS} )
   add_subdirectory( cli )
 endif()
 
+
+add_subdirectory(MHFitting)
+
 module_headertest( ITK )
 
 file( GLOB _ITK_hdrs
