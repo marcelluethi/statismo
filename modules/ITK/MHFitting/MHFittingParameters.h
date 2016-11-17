@@ -37,7 +37,7 @@ namespace mhfitting {
         }
 
 
-        int size() {
+        int size() const {
             // TODO: if this is really used we should change to a different vectorized representation of all parameters
             return m_coefficients.size() + m_rigidParameters.size();
         }

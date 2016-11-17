@@ -219,6 +219,57 @@ FittingResultType::Pointer fitPose( StatismoUI::StatismoUI& ui,
 }
 
 
+
+
+FittingResultType::Pointer fitPoseAndShape( StatismoUI::StatismoUI& ui,
+                                    StatismoUI::ShapeModelTransformationView& ssmTransformationView,
+                                    ImageType* image,
+                                    PreprocessedImageType* preprocessedImage,
+                                    const FittingStepType::CorrespondencePoints& correspondingPoints,
+                                    const std::vector<PointType>& linePoints,
+                                    ActiveShapeModelType* model,
+                                    SamplerType* fitSampler,
+                                    mhfitting::MHFittingConfiguration  configuration,
+                                    itk::VersorRigid3DTransform<float>* transform,
+                                    statismo::VectorType coeffs) {
+
+    itk::VersorRigid3DTransform<float>::Pointer currentRigidTransform = transform->Clone();
+
+    // very ITK unlike, we use a init method instead of setting all fields manually.
+    // This avoids 99% of all core dumps :-)
+    FittingStepType::Pointer fittingStep = FittingStepType::New();
+    fittingStep->init(image, preprocessedImage, correspondingPoints, linePoints, model, FittingStepType::SamplerPointerType(fitSampler), configuration, currentRigidTransform, coeffs);
+    fittingStep->SetChainToPoseAndShape(correspondingPoints, linePoints, transform, coeffs);
+
+
+    vnl_vector<float> lastCoeffs;
+    itk::OptimizerParameters<float> lastTransformParameters;
+    for (int i =1; i <= 100; ++i) {
+        FittingResultType::Pointer result;
+
+        fittingStep->NextSample();
+        result = fittingStep->GetOutput();
+
+
+        if (lastTransformParameters != result->GetRigidTransformParameters() || lastCoeffs != result->GetCoefficients()) {
+            ssmTransformationView.SetPoseTransformation(StatismoUI::PoseTransformation(currentRigidTransform)).SetShapeTransformation(result->GetCoefficients());
+            ui.updateShapeModelTransformationView(ssmTransformationView);
+            lastTransformParameters = result->GetRigidTransformParameters();
+            lastCoeffs = result->GetCoefficients();
+        }
+
+        currentRigidTransform->SetParameters(result->GetRigidTransformParameters());
+
+        std::cout << "Done with iteration " << i << std::endl;
+    }
+
+
+    std::cout << "current transform " << currentRigidTransform << std::endl;
+    FittingResultType::Pointer result = fittingStep->GetOutput();
+    return result;
+}
+
+
 FittingResultType::Pointer fitWithHU( StatismoUI::StatismoUI& ui,
                                     StatismoUI::ShapeModelTransformationView& ssmTransformationView,
                                     ImageType* image,
@@ -395,11 +446,13 @@ int main(int argc, char *argv[]) {
     statismo::VectorType coeffs = statismo::VectorType::Zero(pcaAsmModel->GetStatisticalModel()->GetNumberOfPrincipalComponents());
 
     FittingResultType::Pointer fitPoseResult = fitPose(ui, ssmTransformationView, image, preprocessedImage, correspondingPoints, linePoints, pcaAsmModel, fitSampler, mhFitConfig, initialTransform, coeffs);
+    FittingResultType::Pointer fitPoseAndShapeResult = fitPoseAndShape(ui, ssmTransformationView, image, preprocessedImage, correspondingPoints, linePoints, pcaAsmModel, fitSampler, mhFitConfig, fitPoseResult->GetRigidTransformation(), fromVnlVector(fitPoseResult->GetCoefficients()));
+
 
     // computing the posterior
 
-    vnl_vector<float> coeffsPosteriorModel;
-    computePosteriorModel(image, preprocessedImage, correspondingPoints, linePoints, pcaAsmModel, fitPoseResult->GetCoefficients(), flexibleModel, fitSampler, mhFitConfig, fitPoseResult->GetRigidTransformation(), flexibleModel, coeffsPosteriorModel);
+    vnl_vector<float> coeffsPosteriorModel(pcaAsmModel->GetStatisticalModel()->GetNumberOfPrincipalComponents());
+    computePosteriorModel(image, preprocessedImage, correspondingPoints, linePoints, pcaAsmModel, fitPoseAndShapeResult->GetCoefficients(), flexibleModel, fitSampler, mhFitConfig, fitPoseAndShapeResult->GetRigidTransformation(), flexibleModel, coeffsPosteriorModel);
 
 
     StatismoUI::Group modelgroupPosterior = ui.createGroup("poster");

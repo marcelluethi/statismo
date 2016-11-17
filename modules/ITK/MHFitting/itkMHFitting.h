@@ -79,6 +79,10 @@ namespace itk {
         }
 
 
+        virtual mhfitting::MHFittingParameters rigidICP(const mhfitting::MHFittingParameters& fittingParameters, std::vector<PointType>) const {
+                return fittingParameters;
+        }
+
         void InitializePointLocator(RepresenterType::MeshPointerType mesh) const {
             m_ptLocator = PointsLocatorType::New();
             m_ptLocator->SetPoints(mesh->GetPoints());
@@ -86,8 +90,8 @@ namespace itk {
         };
 
         virtual std::pair<RepresenterType::PointType, long> findClosestPoint(RepresenterType::MeshPointerType mesh, RepresenterType::PointType pt) const {
-            if (mesh.GetPointer() != m_cachedMesh.GetPointer()) {
-                m_cachedMesh = mesh;
+            if (mesh.GetPointer() != m_lastUsedMeshAddress) {
+                m_lastUsedMeshAddress = mesh.GetPointer();
                 InitializePointLocator(mesh);
             }
 
@@ -151,7 +155,6 @@ namespace itk {
             tf->Update();
 
             MeshType::Pointer output = tf->GetOutput();
-            output->DisconnectPipeline();
             return output;
 
         }
@@ -194,7 +197,7 @@ namespace itk {
         PointType m_rotationCenter;
         const StatisticalModelType* m_statisticalModel;
         mutable PointsLocatorType::Pointer m_ptLocator;
-        mutable RepresenterType::MeshPointerType m_cachedMesh;
+        mutable RepresenterType::MeshType* m_lastUsedMeshAddress;
         mutable MeshAdapterType::PointNormalsContainerPointer m_normals;
 
     };
@@ -309,7 +312,7 @@ namespace itk {
         typedef mhfitting::MHFittingConfiguration ConfigurationType;
         typedef typename ASMPointSampler<TPointSet, TImage>::Pointer SamplerPointerType;
         typedef mhfitting::MHFittingStep<TPointSet, TImage> ImplType;
-        typedef typename mhfitting::mcmc::BasicSampling<RepresenterType::DatasetType> BasicSamplingType;
+        typedef typename mhfitting::BasicSampling<RepresenterType::DatasetType> BasicSamplingType;
         typedef MHFittingResult<TPointSet, TImage> ResultType;
 
        typedef typename mhfitting::CorrespondencePoints CorrespondencePoints;
@@ -369,6 +372,10 @@ namespace itk {
             m_chain = BasicSamplingType::buildInitialPoseChain(m_model->GetStatisticalModel()->GetRepresenter(), m_meshOperations, correspondencePoints, targetPoints, m_model->GetstatismoImplObj(), initialParameters, m_bestMatchLogger);
         }
 
+        void SetChainToPoseAndShape(const CorrespondencePoints correspondencePoints, const std::vector<PointType>& targetPoints, itk::Rigid3DTransform<float>* transform, statismo::VectorType coeffs) {
+            mhfitting::MHFittingParameters initialParameters(coeffs, fromVnlVector(transform->GetParameters()), fromITKPoint(transform->GetCenter()));
+            m_chain = BasicSamplingType::buildPoseAndShapeChain(m_model->GetStatisticalModel()->GetRepresenter(), m_meshOperations, correspondencePoints, targetPoints, m_model->GetstatismoImplObj(), initialParameters, m_bestMatchLogger);
+        }
 
 
 //        void SetSampler(SamplerPointerType sampler) {
@@ -434,11 +441,12 @@ namespace itk {
 
     private:
         ModelPointerType m_model;
+        ConfigurationType m_configuration;
+        itkMeshOperations* m_meshOperations;
         sampling::MarkovChain<mhfitting::MHFittingParameters>* m_chain; // FIXME change type
         PreprocessedImagePointerType m_preprocessedTargetImage;
         SamplerPointerType m_sampler;
-        ConfigurationType m_configuration;
-        itkMeshOperations* m_meshOperations;
+
         sampling::BestMatchLogger<mhfitting::MHFittingParameters>* m_bestMatchLogger;
         typename ResultType::Pointer m_result;
     };

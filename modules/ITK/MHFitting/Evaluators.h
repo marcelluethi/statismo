@@ -194,7 +194,6 @@ namespace mhfitting {
 
 
             for( unsigned i = 0; i < m_correspondencePoints.size(); ++i)  {
-
                 PointType pointOnSample = m_closestPoint->getPointWithId(sample, m_correspondencePoints[i].first);
                 double d = m_eval->evalSample(pointOnSample - m_correspondencePoints[i].second);
                 distance += d;

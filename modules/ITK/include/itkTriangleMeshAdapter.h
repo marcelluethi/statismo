@@ -148,8 +148,8 @@ protected:
 private:
 
   CellDataContainerPointer m_cell_areas;
+    PointDataContainerPointer m_point_areas;
   CellNormalsContainerPointer m_cell_normals;
-  PointDataContainerPointer m_point_areas;
   PointNormalsContainerPointer m_point_normals;
   MeshPointer m_mesh;
 

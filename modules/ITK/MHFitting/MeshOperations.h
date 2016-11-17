@@ -19,6 +19,7 @@ namespace mhfitting {
         virtual MeshType transformMesh(const MHFittingParameters& fittingParameters) const = 0;
         virtual PointType getPointWithId(MeshType mesh, unsigned id) const = 0;
         virtual PointType transformToModelSpace(const statismo::VectorType& rigidTransformParameters, PointType pt) const = 0;
+        virtual MHFittingParameters rigidICP(const MHFittingParameters& fittingParameters, std::vector<PointType>) const = 0;
     };
 }
 
