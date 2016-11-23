@@ -171,6 +171,7 @@ FittingStepType::CorrespondencePoints  getCorrespondingPointsToReference( MeshTy
 
 
 FittingResultType::Pointer fitPose( StatismoUI::StatismoUI& ui,
+                                    std::ofstream& logStream,
               StatismoUI::ShapeModelTransformationView& ssmTransformationView,
              ImageType* image,
              PreprocessedImageType* preprocessedImage,
@@ -187,13 +188,13 @@ FittingResultType::Pointer fitPose( StatismoUI::StatismoUI& ui,
         // very ITK unlike, we use a init method instead of setting all fields manually.
     // This avoids 99% of all core dumps :-)
     FittingStepType::Pointer fittingStep = FittingStepType::New();
-    fittingStep->init(image, preprocessedImage, correspondingPoints, linePoints, model, FittingStepType::SamplerPointerType(fitSampler), configuration, currentRigidTransform, coeffs);
+    fittingStep->init(image, preprocessedImage, correspondingPoints, linePoints, model, FittingStepType::SamplerPointerType(fitSampler), configuration, currentRigidTransform, coeffs, logStream);
     fittingStep->SetChainToPoseOnly(correspondingPoints, linePoints, transform, coeffs);
     std::cout << "Initialization done." << std::endl;
 
     vnl_vector<float> lastCoeffs;
     itk::OptimizerParameters<float> lastTransformParameters;
-    for (int i =1; i <= 100; ++i) {
+    for (int i =1; i <= 500; ++i) {
         FittingResultType::Pointer result;
 
         fittingStep->NextSample();
@@ -222,6 +223,7 @@ FittingResultType::Pointer fitPose( StatismoUI::StatismoUI& ui,
 
 
 FittingResultType::Pointer fitPoseAndShape( StatismoUI::StatismoUI& ui,
+                                            std::ofstream& logStream,
                                     StatismoUI::ShapeModelTransformationView& ssmTransformationView,
                                     ImageType* image,
                                     PreprocessedImageType* preprocessedImage,
@@ -238,7 +240,7 @@ FittingResultType::Pointer fitPoseAndShape( StatismoUI::StatismoUI& ui,
     // very ITK unlike, we use a init method instead of setting all fields manually.
     // This avoids 99% of all core dumps :-)
     FittingStepType::Pointer fittingStep = FittingStepType::New();
-    fittingStep->init(image, preprocessedImage, correspondingPoints, linePoints, model, FittingStepType::SamplerPointerType(fitSampler), configuration, currentRigidTransform, coeffs);
+    fittingStep->init(image, preprocessedImage, correspondingPoints, linePoints, model, FittingStepType::SamplerPointerType(fitSampler), configuration, currentRigidTransform, coeffs, logStream);
     fittingStep->SetChainToPoseAndShape(correspondingPoints, linePoints, transform, coeffs);
 
 
@@ -271,6 +273,7 @@ FittingResultType::Pointer fitPoseAndShape( StatismoUI::StatismoUI& ui,
 
 
 FittingResultType::Pointer fitWithHU( StatismoUI::StatismoUI& ui,
+                                      std::ofstream& logStream,
                                     StatismoUI::ShapeModelTransformationView& ssmTransformationView,
                                     ImageType* image,
                                     PreprocessedImageType* preprocessedImage,
@@ -285,7 +288,7 @@ FittingResultType::Pointer fitWithHU( StatismoUI::StatismoUI& ui,
     itk::VersorRigid3DTransform<float>::Pointer currentTransform = transform->Clone();
 
     FittingStepType::Pointer fittingStepFlexibleShapeAndHU = FittingStepType::New();
-    fittingStepFlexibleShapeAndHU->init(image, preprocessedImage, correspondingPoints, linePoints, model, FittingStepType::SamplerPointerType(fitSampler), configuration, transform, fromVnlVector(coeffs));
+    fittingStepFlexibleShapeAndHU->init(image, preprocessedImage, correspondingPoints, linePoints, model, FittingStepType::SamplerPointerType(fitSampler), configuration, transform, fromVnlVector(coeffs), logStream);
     fittingStepFlexibleShapeAndHU->SetChainToLmAndHU(correspondingPoints, linePoints, transform, fromVnlVector(coeffs));
 
 
@@ -333,7 +336,8 @@ void computePosteriorModel(
         itk::VersorRigid3DTransform<float>* initialTransform,
         //statismo::VectorType coeffs,
         ActiveShapeModelType* resultingPosteriorModel,
-        vnl_vector<float>& posteriorModelCoefficients) {
+        vnl_vector<float>& posteriorModelCoefficients,
+        std::ofstream& logStream) {
 
     // compute the uncertainty and set the model accordingly
     PosteriorModelBuilderType::Pointer posteriorModelBuilder = PosteriorModelBuilderType::New();
@@ -343,10 +347,10 @@ void computePosteriorModel(
 
     FittingStepType::Pointer fittingStepFlexibleShapeUncertainty = FittingStepType::New();
     vnl_vector<float> coeffsForFlexibleModel  = flexibleModel->GetStatisticalModel()->ComputeCoefficients(poseModel->GetStatisticalModel()->DrawSample(lastModelCoefficientsPoseModel));
-    fittingStepFlexibleShapeUncertainty->init(image, preprocessedImage, correspondingPoints, linePoints, flexibleModel, FittingStepType::SamplerPointerType(fitSampler), configuration, currentTransform, fromVnlVector(coeffsForFlexibleModel));
+    fittingStepFlexibleShapeUncertainty->init(image, preprocessedImage, correspondingPoints, linePoints, flexibleModel, FittingStepType::SamplerPointerType(fitSampler), configuration, currentTransform, fromVnlVector(coeffsForFlexibleModel), logStream);
 
-    typedef std::map<unsigned, statismo::MultiVariateNormalDistribution> UncertaintyMap;
-    UncertaintyMap uncertaintyMap = fittingStepFlexibleShapeUncertainty->computePointUncertainty(correspondingPoints, linePoints);
+//    typedef std::map<unsigned, statismo::MultiVariateNormalDistribution> UncertaintyMap;
+//    UncertaintyMap uncertaintyMap = fittingStepFlexibleShapeUncertainty->computePointUncertainty(correspondingPoints, linePoints);
 
     MeshType::Pointer ref = flexibleModel->GetStatisticalModel()->GetRepresenter()->GetReference();
 
@@ -356,13 +360,18 @@ void computePosteriorModel(
         unsigned id = correspondingPoints[i].first;
 
         PointType refPt = ref->GetPoint(id);
-        statismo::MatrixType uncertainty = uncertaintyMap.find(id)->second.covariance;
-        vnl_matrix<double> cov(3, 3); cov.set_identity();
-        for (unsigned k = 0; k < 3; ++k) {
-            for (unsigned l = 0; l < 3; ++l) {
-                cov(k,l) = uncertainty(k,l);
-            }
-        }
+//        statismo::MatrixType uncertainty = uncertaintyMap.find(id)->second.covariance;
+//        vnl_matrix<double> cov(3, 3); cov.set_identity();
+//        for (unsigned k = 0; k < 3; ++k) {
+//            for (unsigned l = 0; l < 3; ++l) {
+//                cov(k,l) = uncertainty(k,l);
+//            }
+//        }
+
+        statismo::MatrixType cov = statismo::MatrixType::Identity(3, 3) * 4.0;
+//
+
+
         std::ostringstream os;
         os << "landmark " << i;
 //        ui.showLandmark(modelgroup, targetPoint, cov, os.str());
@@ -374,11 +383,11 @@ void computePosteriorModel(
                 R(k,l) = Rfloat(k,l);
             }
         }
-        vnl_matrix<double> covTargetPos = R * cov * R.transpose();
+        //vnl_matrix<double> covTargetPos = R * cov * R.transpose();
 
         StatisticalModelType::PointValuePairType pointValue(refPt , initialTransform->GetInverseTransform()->TransformPoint(correspondingPoints[i].second));
         // we use the original target point and not the one estimated.
-        StatisticalModelType::PointValueWithCovariancePairType  pointValueCov(pointValue, uncertainty);
+        StatisticalModelType::PointValueWithCovariancePairType  pointValueCov(pointValue, cov);
         constraints.push_back(pointValueCov);
     }
 
@@ -405,6 +414,10 @@ int main(int argc, char *argv[]) {
     std::string targetLinePointsFilename("/tmp/varian-0001-line-lms.csv");
     std::string referenceLandmarkPointsFilename("/tmp/ref-lms.csv");
     std::string targetLandmarkPointsFilename("/tmp/varian-0001-lm.csv");
+    std::string loggerFilename("/tmp/log.csv");
+
+
+    std::ofstream logStream(loggerFilename);
 
     // configuring the asm and the mh fitting.
     SamplerType::Pointer fitSampler = itk::ASMNormalDirectionPointSampler<MeshType, ImageType>::New();
@@ -445,14 +458,14 @@ int main(int argc, char *argv[]) {
     itk::VersorRigid3DTransform<float>::Pointer initialTransform = setupInitialTransform(pcaAsmModel->GetStatisticalModel(), refPoints, targetPoints);
     statismo::VectorType coeffs = statismo::VectorType::Zero(pcaAsmModel->GetStatisticalModel()->GetNumberOfPrincipalComponents());
 
-    FittingResultType::Pointer fitPoseResult = fitPose(ui, ssmTransformationView, image, preprocessedImage, correspondingPoints, linePoints, pcaAsmModel, fitSampler, mhFitConfig, initialTransform, coeffs);
-    FittingResultType::Pointer fitPoseAndShapeResult = fitPoseAndShape(ui, ssmTransformationView, image, preprocessedImage, correspondingPoints, linePoints, pcaAsmModel, fitSampler, mhFitConfig, fitPoseResult->GetRigidTransformation(), fromVnlVector(fitPoseResult->GetCoefficients()));
+    FittingResultType::Pointer fitPoseResult = fitPose(ui, logStream, ssmTransformationView, image, preprocessedImage, correspondingPoints, linePoints, pcaAsmModel, fitSampler, mhFitConfig, initialTransform, coeffs);
+    FittingResultType::Pointer fitPoseAndShapeResult = fitPoseAndShape(ui, logStream, ssmTransformationView, image, preprocessedImage, correspondingPoints, linePoints, pcaAsmModel, fitSampler, mhFitConfig, fitPoseResult->GetRigidTransformation(), fromVnlVector(fitPoseResult->GetCoefficients()));
 
 
     // computing the posterior
 
     vnl_vector<float> coeffsPosteriorModel(pcaAsmModel->GetStatisticalModel()->GetNumberOfPrincipalComponents());
-    computePosteriorModel(image, preprocessedImage, correspondingPoints, linePoints, pcaAsmModel, fitPoseAndShapeResult->GetCoefficients(), flexibleModel, fitSampler, mhFitConfig, fitPoseAndShapeResult->GetRigidTransformation(), flexibleModel, coeffsPosteriorModel);
+    computePosteriorModel(image, preprocessedImage, correspondingPoints, linePoints, pcaAsmModel, fitPoseAndShapeResult->GetCoefficients(), flexibleModel, fitSampler, mhFitConfig, fitPoseAndShapeResult->GetRigidTransformation(), flexibleModel, coeffsPosteriorModel, logStream);
 
 
     StatismoUI::Group modelgroupPosterior = ui.createGroup("poster");
@@ -462,7 +475,7 @@ int main(int argc, char *argv[]) {
 
 
     // fitting with intensity
-    FittingResultType::Pointer fitHUResult = fitWithHU(ui, ssmTransformationViewPosterior, image, preprocessedImage, correspondingPoints, linePoints, flexibleModel, fitSampler, mhFitConfig, fitPoseResult->GetRigidTransformation(), coeffsPosteriorModel);
+    FittingResultType::Pointer fitHUResult = fitWithHU(ui, logStream, ssmTransformationViewPosterior, image, preprocessedImage, correspondingPoints, linePoints, flexibleModel, fitSampler, mhFitConfig, fitPoseResult->GetRigidTransformation(), coeffsPosteriorModel);
 
     ui.showTriangleMesh(targetgroup, fitHUResult->GetMesh(), "final Result");
 

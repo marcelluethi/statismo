@@ -44,7 +44,7 @@ namespace mhfitting {
     public:
         virtual double evalSample(const MHFittingParameters& currentSample) {
 
-            statismo::VectorType coefficients = currentSample.GetCoefficients();
+            statismo::VectorType coefficients = currentSample.GetCoefficients().GetParameters();
 
             return -0.5 * coefficients.size() *log( 2*M_PI ) - 0.5 * coefficients.squaredNorm();
 
@@ -212,23 +212,28 @@ namespace mhfitting {
 
     template <class T>
     class LineEvaluator : public DistributionEvaluator< MHFittingParameters > {
+
+
         typedef MeshOperations<typename statismo::Representer<T>::DatasetPointerType, typename statismo::Representer<T>::PointType> ClosestPointType;
-        typedef std::map<float, std::vector<statismo::VectorType> > LineMapType;
+        typedef typename statismo::Representer<T>::PointType PointType;
+
+        typedef std::map<float, std::vector<PointType> > LineMapType;
     public:
-        LineEvaluator( const statismo::Representer<T>* representer, const ClosestPointType* closestPoint, const std::vector< PointType >& targetPoints, ActiveShapeModelType* asmodel, double noisevar) :
+        LineEvaluator( const statismo::Representer<T>* representer, const ClosestPointType* closestPoint, const std::vector< PointType >& targetPoints, ActiveShapeModelType* asmodel, double noisestddev) :
                 m_targetPoints(targetPoints),
                 m_asmodel(asmodel),
                 m_closestPoint(closestPoint),
-                m_noiseVar(noisevar)
+                m_noiseVar(noisestddev * noisestddev)
         {
 
-            // TODO HACK, we separate the points into lines
+            // TODO HACK, we separate the points into lines, using the z coordinates
             for (unsigned i = 0 ; i < targetPoints.size(); ++i ) {
                 statismo::VectorType pt = representer->PointToVector(targetPoints[i]);
-                if (m_lineMap.find(pt(2)) != m_lineMap.end()) {
-                    m_lineMap.insert(std::make_pair(pt(2), std::vector<statismo::VectorType>()));
+
+                if (m_lineMap.find(round(pt(2))) == m_lineMap.end()) {
+                    m_lineMap.insert(std::make_pair(round(pt(2)), std::vector<PointType>()));
                 }
-                m_lineMap[pt(2)].push_back(pt);
+                m_lineMap[round(pt(2))].push_back(targetPoints[i]);
 
             }
             std::cout << "number of lines " << m_lineMap.size();
@@ -243,30 +248,21 @@ namespace mhfitting {
     public:
 
 
-        double likelihoodForLine(const std::vector<statismo::VectorType> & line, typename RepresenterType::DatasetPointerType sample) {
-//              double sumOfsquaraedDistance = 0.0;
-//              for( int i = 0; i < m_targetPoints.size(); ++i) {
-//
-//                  PointType closestPtOnSample =  m_closestPoint->findClosestPoint(sample, m_targetPoints[i]).first;
-//                  double d = (closestPtOnSample-m_targetPoints[i]).GetNorm();
-//
-//                  sumOfsquaraedDistance += d * d;
-//              }
-//              double avgDistance = sumOfsquaraedDistance / m_targetPoints.size();
-//              VectorType avgDistanceAsVec(1);
-//              avgDistanceAsVec << avgDistance;
-//              m_likelihoodModel.logpdf(avgDistanceAsVec);
+        double likelihoodForLine(const std::vector<PointType> & linePoints, typename RepresenterType::DatasetPointerType sample) {
 
-            double sumOfLog = 0.0;
-            for( int i = 0; i < m_targetPoints.size(); ++i) {
+            double avgDist = 0.0;
+            for( int i = 0; i < linePoints.size(); ++i) {
 
-                PointType closestPtOnSample =  m_closestPoint->findClosestPoint(sample, m_targetPoints[i]).first;
-                double d = (closestPtOnSample-m_targetPoints[i]).GetNorm();
-                statismo::VectorType distAsVec(1);
-                distAsVec << d;
-                sumOfLog += m_likelihoodModel.logpdf(distAsVec);
+                PointType closestPtOnSample =  m_closestPoint->findClosestPoint(sample, linePoints[i]).first;
+                double d = (closestPtOnSample-linePoints[i]).GetNorm();
+                avgDist += d;
             }
-            return sumOfLog;
+            avgDist /= linePoints.size();
+
+            statismo::VectorType distAsVec(1);
+            distAsVec << avgDist;
+
+            return m_likelihoodModel.logpdf(distAsVec);
 
 
         }
@@ -279,7 +275,7 @@ namespace mhfitting {
             typename RepresenterType::DatasetPointerType sample = m_closestPoint->transformMesh(currentSample);
 
             double sumLikelihood = 0;
-            for (LineMapType::iterator it = m_lineMap.begin(); it != m_lineMap.end(); ++it) {
+            for (typename LineMapType::iterator it = m_lineMap.begin(); it != m_lineMap.end(); ++it) {
                 sumLikelihood += likelihoodForLine(it->second, sample);
             }
             return sumLikelihood;

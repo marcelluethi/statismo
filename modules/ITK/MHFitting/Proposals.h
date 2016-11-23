@@ -80,7 +80,7 @@ namespace mhfitting {
         // ProposalGeneratorInterface interface
     public:
         virtual void generateProposal(MHFittingParameters& proposal, const MHFittingParameters& currentSample){
-            VectorType shapeParams = currentSample.GetCoefficients();
+            VectorType shapeParams = currentSample.GetCoefficients().GetParameters();
             VectorType newShapeParams(shapeParams.size());
             newShapeParams.fill(0);
             for (unsigned i = 0; i < std::min(m_maxNumberOfShapeParameters, static_cast<unsigned>(shapeParams.size())); ++i) {
@@ -88,7 +88,7 @@ namespace mhfitting {
             }
 
 
-            proposal = MHFittingParameters(newShapeParams, currentSample.GetRigidTransformParameters(), currentSample.GetRotationCenter());
+            proposal = MHFittingParameters(newShapeParams, currentSample.GetRotationParameters(), currentSample.GetTranslationParameters(), currentSample.GetRotationCenter());
         }
 
         virtual double transitionProbability(const MHFittingParameters& start, const MHFittingParameters& end){
@@ -127,7 +127,7 @@ namespace mhfitting {
         // ProposalGeneratorInterface interface
     public:
         virtual void generateProposal(MHFittingParameters& proposal, const MHFittingParameters& currentSample){
-            VectorType shapeParams = currentSample.GetCoefficients();
+            VectorType shapeParams = currentSample.GetCoefficients().GetParameters();
 
             m_mixtureProposal->generateProposal(proposal, currentSample);
         }
@@ -159,9 +159,9 @@ namespace mhfitting {
     public:
         virtual void generateProposal(MHFittingParameters& proposal, const MHFittingParameters& currentSample){
 
-            VectorType newRigidParams = currentSample.GetRigidTransformParameters();
-            newRigidParams[m_axis] += m_rgen->normalDbl() * m_sigmaRotation;
-            proposal = MHFittingParameters( currentSample.GetCoefficients(), newRigidParams, currentSample.GetRotationCenter());
+            VectorType newRotationParams = currentSample.GetRotationParameters().GetParameters();
+            newRotationParams[m_axis] += m_rgen->normalDbl() * m_sigmaRotation;
+            proposal = MHFittingParameters( currentSample.GetCoefficients(), newRotationParams, currentSample.GetTranslationParameters(), currentSample.GetRotationCenter());
         }
 
         virtual double transitionProbability(const MHFittingParameters& start, const MHFittingParameters& end){
@@ -177,16 +177,16 @@ namespace mhfitting {
         RandomGenerator* m_rgen;
 
     public:
-        TranslationUpdate(double stepSizeTranslations, unsigned axis, RandomGenerator* rgen)
+        TranslationUpdate( unsigned axis, double stepSizeTranslations, RandomGenerator* rgen)
                 : m_axis(axis) , m_sigmaTranslation(stepSizeTranslations),  m_rgen(rgen) {}
 
         // ProposalGeneratorInterface interface
     public:
         virtual void generateProposal(MHFittingParameters& proposal, const MHFittingParameters& currentSample){
 
-            VectorType newRigidParams = currentSample.GetRigidTransformParameters();
-            newRigidParams[3 + m_axis] += m_rgen->normalDbl() * m_sigmaTranslation;
-            proposal = MHFittingParameters( currentSample.GetCoefficients(), newRigidParams, currentSample.GetRotationCenter());
+            VectorType newTranslationParameters = currentSample.GetTranslationParameters().GetParameters();
+            newTranslationParameters[m_axis] += m_rgen->normalDbl() * m_sigmaTranslation;
+            proposal = MHFittingParameters( currentSample.GetCoefficients(), currentSample.GetRotationParameters(), newTranslationParameters, currentSample.GetRotationCenter());
         }
 
         virtual double transitionProbability(const MHFittingParameters& start, const MHFittingParameters& end){
@@ -231,10 +231,11 @@ namespace mhfitting {
             RandomProposal<MHFittingParameters >* transUpdate = new RandomProposal<MHFittingParameters >(transUpdateVec, m_rgen);
 
             std::vector< typename RandomProposal< MHFittingParameters >::GeneratorPair> poseUpdateVec;
-            poseUpdateVec.push_back(std::pair<ProposalGenerator<MHFittingParameters >*, double>(rotUpdate, 0.1));
-            poseUpdateVec.push_back(std::pair<ProposalGenerator<MHFittingParameters >*, double>(transUpdate, 0.1));
+            poseUpdateVec.push_back(std::pair<ProposalGenerator<MHFittingParameters >*, double>(rotUpdate, 0.5));
+            poseUpdateVec.push_back(std::pair<ProposalGenerator<MHFittingParameters >*, double>(transUpdate, 0.5));
 
             m_randomPoseProposal.reset(new RandomProposal<MHFittingParameters >(poseUpdateVec, m_rgen));
+
 
         }
 
@@ -335,17 +336,17 @@ namespace mhfitting {
     template <class T>
     class RigidICPProposal : public ProposalGenerator<MHFittingParameters > {
         typedef MeshOperations<typename statismo::Representer<T>::DatasetPointerType, typename statismo::Representer<T>::PointType> MeshOperationsType;
-        typedef std::vector<std::pair<PointType, PointType> > CorrespondencePointsType;
-        typedef std::vector<PointType> LinePointsType;
+
+        typedef std::vector<PointType> LinePoints;
 
     public:
-        RigidICPProposal(const MeshOperationsType* meshOperations, const CorrespondencePointsType correspondencePoints, const LinePointsType linePoints) : m_meshOperations(meshOperations) {
+        RigidICPProposal(const MeshOperationsType* meshOperations, const CorrespondencePoints& correspondencePoints, const LinePoints& linePoints) : m_meshOperations(meshOperations) {
 
 
-            for (CorrespondencePointsType::const_iterator it = correspondencePoints.begin(); it != m_correspondencePoints.end(); ++it) {
+            for (CorrespondencePoints::const_iterator it = correspondencePoints.begin(); it != correspondencePoints.end(); ++it) {
                 m_targetPoints.push_back(it->second);
             }
-            for (LinePointsType::const_iterator it = linePoints.begin(); it != linePoints.end(); ++it) {
+            for (LinePoints::const_iterator it = linePoints.begin(); it != linePoints.end(); ++it) {
                 m_targetPoints.push_back(*it);
             }
         }
@@ -354,7 +355,15 @@ namespace mhfitting {
     public:
         virtual void generateProposal(MHFittingParameters& proposal, const MHFittingParameters& currentSample){
 
-            proposal = m_meshOperations->rigidICP(currentSample, m_targetPoints);
+            MHFittingParameters newProposal = m_meshOperations->alignModelInstanceToTargetPoints(currentSample, m_targetPoints);
+            double step = 0.1;
+            statismo::VectorType newRotationParameter = currentSample.GetRotationParameters().GetParameters() + (newProposal.GetRotationParameters().GetParameters() - currentSample.GetRotationParameters().GetParameters()) * step;
+            statismo::VectorType newTranslationParameter = currentSample.GetTranslationParameters().GetParameters() + (newProposal.GetTranslationParameters().GetParameters() - currentSample.GetTranslationParameters().GetParameters()) * step;
+            proposal = MHFittingParameters(currentSample.GetCoefficients(),
+                                           MHFittingParameters::RotationParameters(newRotationParameter),
+                                           MHFittingParameters::TranslationParameters(newTranslationParameter),
+                                           currentSample.GetRotationCenter());
+
         }
 
 
@@ -364,8 +373,7 @@ namespace mhfitting {
 
     private:
         const MeshOperationsType* m_meshOperations;
-        CorrespondencePointsType m_correspondencePoints;
-        LinePointsType m_targetPoints;
+        LinePoints m_targetPoints;
     };
 
 

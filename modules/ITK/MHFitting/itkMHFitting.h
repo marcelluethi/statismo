@@ -54,6 +54,10 @@
 #include "MeshOperations.h"
 #include "MHFitting.h"
 #include "Types.h"
+#include "MHFittingUtils.h"
+#include "Sampling/Logger/LoggerDistributor.h"
+#include "Sampling/Logger/AcceptRejectLogger.h"
+
 
 namespace itk {
 
@@ -76,25 +80,92 @@ namespace itk {
             m_rotationCenter = rotationCenter;
             m_interpolator->SetInputImage(image);
             m_statisticalModel = statisticalModel;
+            m_ptLocator = PointsLocatorType::New();
         }
 
 
-        virtual mhfitting::MHFittingParameters rigidICP(const mhfitting::MHFittingParameters& fittingParameters, std::vector<PointType>) const {
-                return fittingParameters;
+        virtual mhfitting::MHFittingParameters alignModelInstanceToTargetPoints(
+                const mhfitting::MHFittingParameters &fittingParameters, const std::vector<PointType> &targetPoints) const {
+
+            PointType center;
+
+            statismo::VectorType rotationCenter = fittingParameters.GetRotationCenter().GetParameters();
+            for (unsigned i = 0; i < 3; ++i) {center[i] = rotationCenter[i]; }
+
+            // find the closest points to harget points
+            RepresenterType::MeshType::Pointer currentMesh = transformMesh(fittingParameters);
+            RepresenterType::MeshType::Pointer nonAlignedMesh = m_statisticalModel->DrawSample(fittingParameters.GetCoefficients().GetParameters());
+
+            std::vector<PointType> closestPointsOnNonAlignedMesh;
+            //std::vector<PointType> closestPointOnCurrentMesh;
+            for (std::vector<PointType>::const_iterator ptIt = targetPoints.begin(); ptIt != targetPoints.end(); ++ptIt) {
+                long ptId = findClosestPoint(currentMesh, *ptIt).second;
+                closestPointsOnNonAlignedMesh.push_back(nonAlignedMesh->GetPoint(ptId));
+            }
+
+
+            // create fake rotation
+            /*
+            statismo::VectorType fakeRotParams = statismo::VectorType::Zero(3); fakeRotParams(0) = 3.14 / 4.0; fakeRotParams(1) = 1.0; fakeRotParams(2) = 3.14 / 8.0;
+
+            mhfitting::MHFittingParameters fakeParams(
+                    mhfitting::MHFittingParameters::ModelParameters(statismo::VectorType::Zero(m_statisticalModel->GetNumberOfPrincipalComponents())),
+                    mhfitting::MHFittingParameters::RotationParameters(fakeRotParams),
+                    mhfitting::MHFittingParameters::TranslationParameters(statismo::VectorType::Zero(3)),
+                    mhfitting::MHFittingParameters::RotationCenter(statismo::VectorType::Zero(3))
+            );
+            VersorRigid3DTransform<float>::Pointer rigidTransformx = getTransformFromParameters(fakeParams);
+
+            std::vector<PointType> fakePoints;
+            for (std::vector<PointType>::const_iterator ptIt = targetPoints.begin(); ptIt != targetPoints.end(); ++ptIt) {
+                fakePoints.push_back(rigidTransformx->TransformPoint(*ptIt));
+            }
+            std::cout << " parameters fake transform " << rigidTransformx->GetParameters() << std::endl;
+            */
+            mhfitting::MHFittingUtils::ProcrustesResult pResult = mhfitting::MHFittingUtils::computeProcrustes(closestPointsOnNonAlignedMesh, targetPoints, center);
+
+
+            // We need to transform things back into a versor. Therefore we create a versor transform set its matrix
+            // and hope for the best that we get a versor back. We need double precision, as otherwise ITK complains.
+            VersorRigid3DTransform<double>::Pointer rigidTransform = VersorRigid3DTransform<double>::New();
+            VersorRigid3DTransform<double>::MatrixType R;
+            VersorRigid3DTransform<double>::VectorType t;
+
+            for (unsigned i = 0; i < 3; ++i) {
+                t[i] = pResult.translationVector(i);
+                for (unsigned j = 0; j < 3; j++) {
+                    R(i,j) = pResult.rotationMatrix(i,j);
+                }
+            }
+
+
+            rigidTransform->SetCenter(center);
+            rigidTransform->SetMatrix(R);
+            rigidTransform->SetTranslation(t);
+            rigidTransform->Modified();
+            statismo::VectorType newRotationParameters(3);
+
+            for (unsigned i = 0; i < 3; ++i) {
+                newRotationParameters(i) = rigidTransform->GetParameters().GetElement(i); // the first three entries are the versor components
+            }
+
+            statismo::VectorType newTranslationParameters = pResult.translationVector.cast<float>();
+            mhfitting::MHFittingParameters newParameters(fittingParameters.GetCoefficients(), mhfitting::MHFittingParameters::RotationParameters(newRotationParameters), mhfitting::MHFittingParameters::TranslationParameters(newTranslationParameters), fittingParameters.GetRotationCenter());
+
+            return newParameters;
         }
 
         void InitializePointLocator(RepresenterType::MeshPointerType mesh) const {
-            m_ptLocator = PointsLocatorType::New();
-            m_ptLocator->SetPoints(mesh->GetPoints());
-            m_ptLocator->Initialize();
+            if (m_lastUsedMesh.GetPointer() == 0 || mesh->GetPoints() !=  m_lastUsedMesh->GetPoints()) {
+                m_lastUsedMesh = mesh;
+                m_ptLocator->SetPoints(mesh->GetPoints());
+                m_ptLocator->Initialize();
+           }
         };
 
         virtual std::pair<RepresenterType::PointType, long> findClosestPoint(RepresenterType::MeshPointerType mesh, RepresenterType::PointType pt) const {
-            if (mesh.GetPointer() != m_lastUsedMeshAddress) {
-                m_lastUsedMeshAddress = mesh.GetPointer();
-                InitializePointLocator(mesh);
-            }
 
+            InitializePointLocator(mesh);
             long ptId = m_ptLocator->FindClosestPoint(pt);
             return std::make_pair(mesh->GetPoints()->GetElement(ptId), ptId);
         }
@@ -125,26 +196,57 @@ namespace itk {
 
         }
 
-        RigidTransformType::Pointer getTransform(const mhfitting::MHFittingParameters& fittingParameters) const {
+        RigidTransformType::Pointer getTransformFromParameters(const mhfitting::MHFittingParameters &fittingParameters) const {
 
             RigidTransformType::Pointer newRigidTransform = RigidTransformType::New();
             newRigidTransform->SetCenter(m_rotationCenter);
-            statismo::VectorType rigidParams = fittingParameters.GetRigidTransformParameters();
-            RigidTransformType::ParametersType p(rigidParams.size());
-            for (unsigned i = 0 ; i < rigidParams.size(); ++i) {
-                p.SetElement(i, rigidParams[i]);
+            statismo::VectorType rotationParams = fittingParameters.GetRotationParameters().GetParameters();
+            statismo::VectorType translationParams = fittingParameters.GetTranslationParameters().GetParameters();
+            RigidTransformType::ParametersType p(rotationParams.size() + translationParams.size());
+            for (unsigned i = 0 ; i < rotationParams.size(); ++i) {
+                p.SetElement(i, rotationParams[i]);
             }
+            for (unsigned i = 0 ; i < translationParams.size(); ++i) {
+                p.SetElement(i + 3, translationParams[i]);
+            }
+
             newRigidTransform->SetParameters(p);
             return newRigidTransform;
         }
 
+
+        mhfitting::MHFittingParameters getParametersFromTransform(RigidTransformType *rigidTransform,
+                                                                  statismo::VectorType coeffs) const {
+
+            typename RigidTransformType::ParametersType rigidTransformParams = rigidTransform->GetParameters();
+            statismo::VectorType translationParams(3);
+            statismo::VectorType rotationParams(3);
+            statismo::VectorType rotationCenter(3);
+
+            for (unsigned i = 0; i < 3; ++i) {
+                rotationParams(i) = rigidTransformParams[i];
+                rotationCenter(i) = rigidTransform->GetCenter().GetElement(i);
+                translationParams(i) = rigidTransformParams[3 + i];
+            }
+
+            return mhfitting::MHFittingParameters(
+                    mhfitting::MHFittingParameters::ModelParameters(coeffs),
+                    mhfitting::MHFittingParameters::RotationParameters(rotationParams),
+                    mhfitting::MHFittingParameters::TranslationParameters(translationParams),
+                    mhfitting::MHFittingParameters::RotationCenter(rotationCenter)
+            );
+
+            //return params;
+        }
+
+
         RepresenterType::DatasetPointerType transformMesh(const mhfitting::MHFittingParameters& fittingParameters) const {
 
             typedef  RepresenterType::DatasetType MeshType ;
-            MeshType::Pointer   sampleShape = m_statisticalModel->DrawSample(fittingParameters.GetCoefficients());
+            MeshType::Pointer   sampleShape = m_statisticalModel->DrawSample(fittingParameters.GetCoefficients().GetParameters());
 
 
-            RigidTransformType::Pointer newRigidTransform = getTransform(fittingParameters);
+            RigidTransformType::Pointer newRigidTransform = getTransformFromParameters(fittingParameters);
 
 
             typedef itk::TransformMeshFilter<MeshType, MeshType, RigidTransformType> TransformMeshFilterType;
@@ -162,19 +264,12 @@ namespace itk {
 
 
 
-        virtual PointType transformToModelSpace(const statismo::VectorType& rigidTransformParameters, PointType pt) const {
+        virtual PointType transformToModelSpace(const mhfitting::MHFittingParameters& fittingParameters, PointType pt) const {
             typedef itk::VersorRigid3DTransform<float> RigidTransformType;
 
+            RigidTransformType::Pointer rigidTransform = getTransformFromParameters(fittingParameters);
 
-            RigidTransformType::Pointer newRigidTransform = RigidTransformType::New();
-            newRigidTransform->SetCenter(m_rotationCenter);
-            RigidTransformType::ParametersType p(rigidTransformParameters.size());
-            for (unsigned i = 0 ; i < rigidTransformParameters.size(); ++i) {
-                p.SetElement(i, rigidTransformParameters[i]);
-            }
-            newRigidTransform->SetParameters(p);
-
-            return newRigidTransform->GetInverseTransform()->TransformPoint(pt);
+            return rigidTransform->GetInverseTransform()->TransformPoint(pt);
         }
 
 
@@ -197,7 +292,7 @@ namespace itk {
         PointType m_rotationCenter;
         const StatisticalModelType* m_statisticalModel;
         mutable PointsLocatorType::Pointer m_ptLocator;
-        mutable RepresenterType::MeshType* m_lastUsedMeshAddress;
+        mutable RepresenterType::MeshType::Pointer m_lastUsedMesh;
         mutable MeshAdapterType::PointNormalsContainerPointer m_normals;
 
     };
@@ -237,7 +332,7 @@ namespace itk {
 
 
         VectorType GetCoefficients() {
-            return toVnlVector(m_samplingParameters.GetCoefficients());
+            return toVnlVector(m_samplingParameters.GetCoefficients().GetParameters());
         }
 
         VersorRigid3DTransform<float>::Pointer GetRigidTransformation() {
@@ -250,7 +345,7 @@ namespace itk {
 
 
         PointType GetRotationCenter() {
-            statismo::VectorType rotationCenter =  m_samplingParameters.GetRotationCenter();
+            statismo::VectorType rotationCenter =  m_samplingParameters.GetRotationCenter().GetParameters();
             PointType p;
             assert(rotationCenter.size() == 3);
             for (unsigned i = 0 ; i < 3; ++i) {
@@ -260,12 +355,7 @@ namespace itk {
         }
 
          RigidTransformType::ParametersType GetRigidTransformParameters() {
-             statismo::VectorType rigidParameters =  m_samplingParameters.GetRigidTransformParameters();
-             RigidTransformType::ParametersType p(rigidParameters.size());
-             for (unsigned i = 0 ; i < rigidParameters.size(); ++i) {
-                 p.SetElement(i, rigidParameters[i]);
-             }
-            return p;
+             return  m_meshOperations->getTransformFromParameters(m_samplingParameters)->GetParameters();
         }
 
 
@@ -317,7 +407,7 @@ namespace itk {
 
        typedef typename mhfitting::CorrespondencePoints CorrespondencePoints;
 
-        MHFittingStepper() :  m_model(0), m_configuration(statismo::ASMFittingConfiguration(0,0,0)), m_meshOperations(0), m_chain(0) { }
+        MHFittingStepper() :  m_model(0), m_configuration(statismo::ASMFittingConfiguration(0,0,0)) { }
 
         void init(ImagePointerType targetImage,
                   PreprocessedImagePointerType preprocessedTargetImage,
@@ -326,55 +416,58 @@ namespace itk {
                   ModelPointerType model,
                   SamplerPointerType sampler,
                   ConfigurationType configuration,
-                  itk::Rigid3DTransform<float>* transform,
-                  statismo::VectorType coeffs)
+                  RigidTransformType* transform,
+                  statismo::VectorType coeffs,
+                  std::ofstream& logStream)
         {
             m_model = model;
             m_sampler = sampler; // need to hold it here, as otherwise it crashes.
             m_configuration = configuration;
-            m_meshOperations = new itkMeshOperations(model->GetStatisticalModel()->GetstatismoImplObj(), targetImage, transform->GetCenter()) ;// TODO this is a memory leak - there must be a better way
+            m_meshOperations.reset(new itkMeshOperations(model->GetStatisticalModel()->GetstatismoImplObj(), targetImage, transform->GetCenter()));
             m_preprocessedTargetImage = preprocessedTargetImage;
-            m_bestMatchLogger = new sampling::BestMatchLogger<mhfitting::MHFittingParameters>();
 
+            m_bestMatchLogger.reset(new sampling::BestMatchLogger<mhfitting::MHFittingParameters>());
+            m_loggerDistributor.reset(new sampling::LoggerDistributor<mhfitting::MHFittingParameters>());
+            m_printLogger.reset(new sampling::AcceptRejectLogger<mhfitting::MHFittingParameters>(logStream));
+            m_loggerDistributor->add(m_bestMatchLogger.get());
+            m_loggerDistributor->add(m_printLogger.get());
 
             // TODO need pass trough all parameters
 //            vector<PointType,int> targetPointsWithIndex,
 //            ActiveShapeModelType* asmodel,
 //            RigidTransformPointerType transform,
 //            statismo::VectorType coeffs
+            mhfitting::MHFittingParameters initialParameters = m_meshOperations->getParametersFromTransform(transform, coeffs);
 
-            mhfitting::MHFittingParameters initialParameters(coeffs, fromVnlVector(transform->GetParameters()), fromITKPoint(transform->GetCenter()));
-
-          m_chain = BasicSamplingType::buildInitialPoseChain(m_model->GetStatisticalModel()->GetRepresenter(), m_meshOperations, correspondencePoints, targetPoints, m_model->GetstatismoImplObj(), initialParameters, m_bestMatchLogger);
-
-        }
-
-        std::map<unsigned, statismo::MultiVariateNormalDistribution> computePointUncertainty(const CorrespondencePoints correspondencePoints,
-                                     const std::vector<PointType> &targetPoints) {
-            mhfitting::MHFittingParameters lastParameters;
-            m_chain->current(lastParameters);
-            std::cout << "last rigid parameters " << lastParameters.GetRigidTransformParameters() << std::endl;
-            std::cout << "last sahpe parameters " << lastParameters.GetCoefficients() << std::endl;
-            return BasicSamplingType::estimatePointUncertaintyForInitialPoseChain(
-                    m_model->GetStatisticalModel()->GetRepresenter(), m_meshOperations, correspondencePoints,
-                    targetPoints, m_model->GetstatismoImplObj(), lastParameters);
+          m_chain.reset(BasicSamplingType::buildInitialPoseChain(m_model->GetStatisticalModel()->GetRepresenter(), m_meshOperations.get(), correspondencePoints, targetPoints, m_model->GetstatismoImplObj(), initialParameters, m_loggerDistributor.get()));
 
         }
 
-        void SetChainToLmAndHU(const CorrespondencePoints correspondencePoints, const std::vector<PointType>& targetPoints, itk::Rigid3DTransform<float>* transform, statismo::VectorType coeffs) {
-            mhfitting::MHFittingParameters initialParameters(coeffs, fromVnlVector(transform->GetParameters()), fromITKPoint(transform->GetCenter()));
-            m_chain = BasicSamplingType::buildLmAndHuChain(m_model->GetStatisticalModel()->GetRepresenter(), m_meshOperations, correspondencePoints, targetPoints, m_model->GetstatismoImplObj(), initialParameters, m_bestMatchLogger);
+//        std::map<unsigned, statismo::MultiVariateNormalDistribution> computePointUncertainty(const CorrespondencePoints correspondencePoints,
+//                                     const std::vector<PointType> &targetPoints) {
+//            mhfitting::MHFittingParameters lastParameters;
+//            m_chain->current(lastParameters);
+//
+//            return BasicSamplingType::estimatePointUncertaintyForInitialPoseChain(
+//                    m_model->GetStatisticalModel()->GetRepresenter(), m_meshOperations, correspondencePoints,
+//                    targetPoints, m_model->GetstatismoImplObj(), lastParameters);
+//
+//        }
+
+        void SetChainToLmAndHU(const CorrespondencePoints correspondencePoints, const std::vector<PointType>& targetPoints, RigidTransformType* transform, statismo::VectorType coeffs) {
+            mhfitting::MHFittingParameters initialParameters = m_meshOperations->getParametersFromTransform(transform, coeffs);
+            m_chain.reset(BasicSamplingType::buildLmAndHuChain(m_model->GetStatisticalModel()->GetRepresenter(), m_meshOperations.get(), correspondencePoints, targetPoints, m_model->GetstatismoImplObj(), initialParameters, m_loggerDistributor.get()));
         }
 
 
-        void SetChainToPoseOnly(const CorrespondencePoints correspondencePoints, const std::vector<PointType>& targetPoints, itk::Rigid3DTransform<float>* transform, statismo::VectorType coeffs) {
-            mhfitting::MHFittingParameters initialParameters(coeffs, fromVnlVector(transform->GetParameters()), fromITKPoint(transform->GetCenter()));
-            m_chain = BasicSamplingType::buildInitialPoseChain(m_model->GetStatisticalModel()->GetRepresenter(), m_meshOperations, correspondencePoints, targetPoints, m_model->GetstatismoImplObj(), initialParameters, m_bestMatchLogger);
+        void SetChainToPoseOnly(const CorrespondencePoints correspondencePoints, const std::vector<PointType>& targetPoints, RigidTransformType* transform, statismo::VectorType coeffs) {
+            mhfitting::MHFittingParameters initialParameters = m_meshOperations->getParametersFromTransform(transform, coeffs);
+            m_chain.reset(BasicSamplingType::buildInitialPoseChain(m_model->GetStatisticalModel()->GetRepresenter(), m_meshOperations.get(), correspondencePoints, targetPoints, m_model->GetstatismoImplObj(), initialParameters, m_loggerDistributor.get()));
         }
 
-        void SetChainToPoseAndShape(const CorrespondencePoints correspondencePoints, const std::vector<PointType>& targetPoints, itk::Rigid3DTransform<float>* transform, statismo::VectorType coeffs) {
-            mhfitting::MHFittingParameters initialParameters(coeffs, fromVnlVector(transform->GetParameters()), fromITKPoint(transform->GetCenter()));
-            m_chain = BasicSamplingType::buildPoseAndShapeChain(m_model->GetStatisticalModel()->GetRepresenter(), m_meshOperations, correspondencePoints, targetPoints, m_model->GetstatismoImplObj(), initialParameters, m_bestMatchLogger);
+        void SetChainToPoseAndShape(const CorrespondencePoints correspondencePoints, const std::vector<PointType>& targetPoints, RigidTransformType* transform, statismo::VectorType coeffs) {
+            mhfitting::MHFittingParameters initialParameters = m_meshOperations->getParametersFromTransform(transform, coeffs);
+            m_chain.reset(BasicSamplingType::buildPoseAndShapeChain(m_model->GetStatisticalModel()->GetRepresenter(), m_meshOperations.get(), correspondencePoints, targetPoints, m_model->GetstatismoImplObj(), initialParameters, m_loggerDistributor.get()));
         }
 
 
@@ -412,12 +505,12 @@ namespace itk {
 //        }
 
         void NextSample() {
-            ImplType *impl = ImplType::Create(m_chain);
+            ImplType *impl = ImplType::Create(m_chain.get());
 
             mhfitting::MHFittingParameters currentParameters = impl->Perform();
             mhfitting::MHFittingParameters bestParameters = m_bestMatchLogger->getBest();
             m_result = ResultType::New();
-            m_result->SetInternalData(m_meshOperations, bestParameters);
+            m_result->SetInternalData(m_meshOperations.get(), bestParameters);
 
             delete impl;
         }
@@ -442,12 +535,14 @@ namespace itk {
     private:
         ModelPointerType m_model;
         ConfigurationType m_configuration;
-        itkMeshOperations* m_meshOperations;
-        sampling::MarkovChain<mhfitting::MHFittingParameters>* m_chain; // FIXME change type
+        std::unique_ptr<itkMeshOperations > m_meshOperations;
+        std::unique_ptr<sampling::MarkovChain<mhfitting::MHFittingParameters> > m_chain; // FIXME change type
         PreprocessedImagePointerType m_preprocessedTargetImage;
         SamplerPointerType m_sampler;
 
-        sampling::BestMatchLogger<mhfitting::MHFittingParameters>* m_bestMatchLogger;
+        std::unique_ptr<::sampling::BestMatchLogger<mhfitting::MHFittingParameters> > m_bestMatchLogger;
+        std::unique_ptr<::sampling::LoggerDistributor<mhfitting::MHFittingParameters> > m_loggerDistributor;
+        std::unique_ptr<::sampling::AcceptRejectLogger<mhfitting::MHFittingParameters> > m_printLogger;
         typename ResultType::Pointer m_result;
     };
 

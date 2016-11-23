@@ -18,8 +18,9 @@ namespace mhfitting {
         virtual short huAtPoint(MeshType mesh, long ptId) const = 0;
         virtual MeshType transformMesh(const MHFittingParameters& fittingParameters) const = 0;
         virtual PointType getPointWithId(MeshType mesh, unsigned id) const = 0;
-        virtual PointType transformToModelSpace(const statismo::VectorType& rigidTransformParameters, PointType pt) const = 0;
-        virtual MHFittingParameters rigidICP(const MHFittingParameters& fittingParameters, std::vector<PointType>) const = 0;
+        virtual PointType transformToModelSpace(const mhfitting::MHFittingParameters & fittingParameters,  PointType pt) const = 0;
+        virtual MHFittingParameters alignModelInstanceToTargetPoints(const MHFittingParameters &fittingParameters,
+                                                                     const std::vector<PointType> &targetPoints) const = 0;
     };
 }
 
