@@ -19,8 +19,12 @@ namespace mhfitting {
         virtual MeshType transformMesh(const MHFittingParameters& fittingParameters) const = 0;
         virtual PointType getPointWithId(MeshType mesh, unsigned id) const = 0;
         virtual PointType transformToModelSpace(const mhfitting::MHFittingParameters & fittingParameters,  PointType pt) const = 0;
-        virtual MHFittingParameters alignModelInstanceToTargetPoints(const MHFittingParameters &fittingParameters,
+        virtual MHFittingParameters::RigidParameters alignModelInstanceToTargetPoints(const MHFittingParameters &fittingParameters,
                                                                      const std::vector<PointType> &targetPoints) const = 0;
+        virtual MHFittingParameters::ModelParameters projectModelInstanceToTargetPoints(const MHFittingParameters &fittingParameters,
+                                                                       const CorrespondencePoints& correpsondencePoints,
+                                                                        const std::vector<PointType> &targetPoints) const = 0;
+
     };
 }
 

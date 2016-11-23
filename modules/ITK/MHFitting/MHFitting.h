@@ -527,9 +527,7 @@ namespace mhfitting {
                 // basics
                 RandomGenerator *rGen = new RandomGenerator(42);
                 RandomPoseProposal *randomPoseProposal = new RandomPoseProposal(rGen);
-                randomPoseProposal->setName("RandomPoseProposal");
-                RigidICPProposal<MeshType>* rigidICPProposal = new RigidICPProposal<MeshType>(meshOperations, correspondencePoints, targetPoints);
-                rigidICPProposal->setName("rigidICPProposal");
+                RigidICPProposal<MeshType>* rigidICPProposal = new RigidICPProposal<MeshType>(meshOperations, correspondencePoints, targetPoints, 0.1);
 
                 std::vector<typename RandomProposal<MHFittingParameters>::GeneratorPair> poseMixtureProposalVec;
                 poseMixtureProposalVec.push_back(std::make_pair(randomPoseProposal, 0.5));
@@ -560,7 +558,7 @@ namespace mhfitting {
 
             static MarkovChain<MHFittingParameters> *buildPoseAndShapeChain(
                     const statismo::Representer<T> *representer,
-                    const MeshOperations<typename statismo::Representer<T>::DatasetPointerType, typename statismo::Representer<T>::PointType> *closestPoint,
+                    const MeshOperations<typename statismo::Representer<T>::DatasetPointerType, typename statismo::Representer<T>::PointType> *meshOperations,
                     CorrespondencePoints correspondencePoints,
                     vector<PointType> targetPoints,
                     ActiveShapeModelType *asmodel,
@@ -573,18 +571,23 @@ namespace mhfitting {
                 RandomPoseProposal *randomPoseProposal = new RandomPoseProposal(rGen);
                 RandomShapeProposal *randomShapeProposal = new RandomShapeProposal(
                         asmodel->GetStatisticalModel()->GetNumberOfPrincipalComponents(), rGen);
+                RigidICPProposal<MeshType>* rigidICPProposal = new RigidICPProposal<MeshType>(meshOperations, correspondencePoints, targetPoints, 1.0);
+                ShapeICPProposal<MeshType>* shapeICPProposal = new ShapeICPProposal<MeshType>(meshOperations, correspondencePoints, targetPoints, 0.1);
+
                 std::vector<typename RandomProposal<MHFittingParameters>::GeneratorPair> poseAndShapeMixtureVec;
-                poseAndShapeMixtureVec.push_back(std::make_pair(randomPoseProposal, 0.5));
-                poseAndShapeMixtureVec.push_back(std::make_pair(randomShapeProposal, 0.5));
+                poseAndShapeMixtureVec.push_back(std::make_pair(randomPoseProposal, 0.1));
+                poseAndShapeMixtureVec.push_back(std::make_pair(randomShapeProposal, 0.7));
+                poseAndShapeMixtureVec.push_back(std::make_pair(shapeICPProposal, 0.1));
+                poseAndShapeMixtureVec.push_back(std::make_pair(rigidICPProposal, 0.1));
                 RandomProposal<MHFittingParameters> *poseAndShapeProposal = new RandomProposal<MHFittingParameters>(
                         poseAndShapeMixtureVec, rGen);
 
                 Gaussian3DPositionDifferenceEvaluator<MeshType> *diffEval = new Gaussian3DPositionDifferenceEvaluator<MeshType>(
                         asmodel->GetRepresenter(), 1.0);
-                PointEvaluator<T> *pointEval = new PointEvaluator<T>(representer, closestPoint, correspondencePoints,
+                PointEvaluator<T> *pointEval = new PointEvaluator<T>(representer, meshOperations, correspondencePoints,
                                                                      asmodel, diffEval);
-                LineEvaluator<T> *lineEval = new LineEvaluator<T>(representer, closestPoint, targetPoints, asmodel,
-                                                                  3.0);
+                LineEvaluator<T> *lineEval = new LineEvaluator<T>(representer, meshOperations, targetPoints, asmodel,
+                                                                  0.2);
 
                 ModelPriorEvaluator<MeshType> *modelPriorEvaluator = new ModelPriorEvaluator<MeshType>();
 

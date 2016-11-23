@@ -246,7 +246,7 @@ FittingResultType::Pointer fitPoseAndShape( StatismoUI::StatismoUI& ui,
 
     vnl_vector<float> lastCoeffs;
     itk::OptimizerParameters<float> lastTransformParameters;
-    for (int i =1; i <= 100; ++i) {
+    for (int i =1; i <= 500; ++i) {
         FittingResultType::Pointer result;
 
         fittingStep->NextSample();
@@ -409,7 +409,7 @@ int main(int argc, char *argv[]) {
 
     // parameters, file names, etc.
     std::string flexibleModelName("/home/luetma00/workspaces/projects/varian/data/asm-pca-all-data-localized.h5");
-    std::string pcaModelName("/home/luetma00/workspaces/projects/varian/data/asm-pca-all-data-localized.h5");
+    std::string pcaModelName("/home/luetma00/workspaces/projects/varian/data/asm-pca-all-data.h5");
     std::string imageFilename("/export/skulls/data/shapes/esophagus/varian/raw/normalized/volume-ct/varian-0001.nii");
     std::string targetLinePointsFilename("/tmp/varian-0001-line-lms.csv");
     std::string referenceLandmarkPointsFilename("/tmp/ref-lms.csv");

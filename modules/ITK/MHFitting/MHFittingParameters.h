@@ -42,6 +42,22 @@ namespace mhfitting {
         };
 
 
+        class RigidParameters {
+        public:
+            RigidParameters(const RotationParameters& rotParams, const TranslationParameters& transParams, const RotationCenter& rotCenter )
+                    : m_translationParameters(transParams), m_rotationParameters(rotParams), m_rotationCenter(rotCenter) {}
+
+            const TranslationParameters& GetTranslationParameters() const { return m_translationParameters; }
+            const RotationParameters& GetRotationParameters() const { return m_rotationParameters; }
+            const RotationCenter& GetRotationCenter() const { return m_rotationCenter; }
+
+        private:
+            TranslationParameters m_translationParameters;
+            RotationParameters m_rotationParameters;
+            RotationCenter m_rotationCenter;
+        };
+
+
         MHFittingParameters() :
                 m_coefficients(ModelParameters(statismo::VectorType::Zero(200))),
                 m_rotationParameters(RotationParameters(statismo::VectorType::Zero(3))),

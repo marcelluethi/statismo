@@ -50,6 +50,7 @@
 #include "itkLinearInterpolateImageFunction.h"
 #include "itkTriangleMeshAdapter.h"
 #include "itkTransformMeshFilter.h"
+#include <itkPosteriorModelBuilder.h>
 #include "Sampling/Logger/BestMatchLogger.h"
 #include "MeshOperations.h"
 #include "MHFitting.h"
@@ -72,6 +73,7 @@ namespace itk {
         typedef MeshAdapterType::PointNormalType PointNormalType;
         typedef itk::LinearInterpolateImageFunction<ImageType> InterpolatorType;
         typedef RepresenterType::PointType PointType;
+        typedef itk::PosteriorModelBuilder<typename RepresenterType::DatasetType> PosteriorModelBuilderType;
         typedef statismo::StatisticalModel<RepresenterType::DatasetType>  StatisticalModelType;
 
 
@@ -84,7 +86,37 @@ namespace itk {
         }
 
 
-        virtual mhfitting::MHFittingParameters alignModelInstanceToTargetPoints(
+
+        virtual mhfitting::MHFittingParameters::ModelParameters projectModelInstanceToTargetPoints(const mhfitting::MHFittingParameters &fittingParameters,
+                                                                       const mhfitting::CorrespondencePoints& correspondencePoints,
+                                                                       const std::vector<PointType> &targetPoints) const {
+
+            RepresenterType::MeshType::Pointer currentMesh = transformMesh(fittingParameters);
+            RigidTransformType::Pointer rigidTransform = getTransformFromParameters(fittingParameters);
+
+            // transform all the points into model space and add them as constraint
+
+            PosteriorModelBuilderType::PointValueListType constraints;
+
+            for (std::vector<PointType>::const_iterator ptIt = targetPoints.begin(); ptIt != targetPoints.end(); ++ptIt) {
+                long pointId = findClosestPoint(currentMesh, *ptIt).second;
+                PointType refPt = m_statisticalModel->GetRepresenter()->GetReference()->GetPoint(pointId);
+                constraints.push_back(std::make_pair(refPt, rigidTransform->GetInverseTransform()->TransformPoint(*ptIt)));
+            }
+
+            for (mhfitting::CorrespondencePoints::const_iterator cpIt = correspondencePoints.begin(); cpIt != correspondencePoints.end(); ++cpIt) {
+                PointType refPt = m_statisticalModel->GetRepresenter()->GetReference()->GetPoint(cpIt->first);
+                constraints.push_back(std::make_pair(refPt, rigidTransform->GetInverseTransform()->TransformPoint(cpIt->second)));
+            }
+
+            statismo::VectorType newCoefficients = m_statisticalModel->ComputeCoefficientsForPointValues(constraints, 2.0);
+
+
+            return mhfitting::MHFittingParameters::ModelParameters(newCoefficients);
+
+        }
+
+        virtual mhfitting::MHFittingParameters::RigidParameters alignModelInstanceToTargetPoints(
                 const mhfitting::MHFittingParameters &fittingParameters, const std::vector<PointType> &targetPoints) const {
 
             PointType center;
@@ -150,7 +182,7 @@ namespace itk {
             }
 
             statismo::VectorType newTranslationParameters = pResult.translationVector.cast<float>();
-            mhfitting::MHFittingParameters newParameters(fittingParameters.GetCoefficients(), mhfitting::MHFittingParameters::RotationParameters(newRotationParameters), mhfitting::MHFittingParameters::TranslationParameters(newTranslationParameters), fittingParameters.GetRotationCenter());
+            mhfitting::MHFittingParameters::RigidParameters newParameters(mhfitting::MHFittingParameters::RotationParameters(newRotationParameters), mhfitting::MHFittingParameters::TranslationParameters(newTranslationParameters), fittingParameters.GetRotationCenter());
 
             return newParameters;
         }
