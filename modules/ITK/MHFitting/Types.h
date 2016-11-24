@@ -24,6 +24,15 @@ typedef  itk::Point<float, 3> PointType;
     typedef  statismo::ASMFittingStep<MeshType, ImageType> ASMFittingStepType;
     typedef std::vector<std::pair<unsigned, PointType> > CorrespondencePoints;
 
+    class CenterLineModel {
+    public:
+        CenterLineModel(StatisticalModelType* statisticalModel) : m_statisticalModel(statisticalModel) {}
+        const StatisticalModelType* GetStatisticalModel() const { return m_statisticalModel; }
+    private:
+        const StatisticalModelType* m_statisticalModel;
+    };
+
+
 }
 
 #endif //STATISMO_TYPES_H_H

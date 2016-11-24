@@ -60,7 +60,11 @@
 #include "Sampling/Logger/AcceptRejectLogger.h"
 
 
+
+
 namespace itk {
+
+
 
     typedef itk::Image<float, 3> ImageType;
 
@@ -78,44 +82,99 @@ namespace itk {
 
 
     public:
-        itkMeshOperations(const StatisticalModelType* statisticalModel, ImageType::Pointer image, PointType rotationCenter) : m_image(image), m_interpolator(InterpolatorType::New()) {
+        itkMeshOperations(const StatisticalModelType* statisticalModel, const mhfitting::CenterLineModel& centerlineModel, ImageType::Pointer image, PointType rotationCenter)
+                :   m_image(image), m_interpolator(InterpolatorType::New()), m_centerLineModel(centerlineModel) {
             m_rotationCenter = rotationCenter;
             m_interpolator->SetInputImage(image);
             m_statisticalModel = statisticalModel;
             m_ptLocator = PointsLocatorType::New();
+
+
+
         }
 
 
+//
+//        virtual mhfitting::MHFittingParameters::ModelParameters projectModelInstanceToTargetPoints(const mhfitting::MHFittingParameters &fittingParameters,
+//                                                                       const mhfitting::CorrespondencePoints& correspondencePoints,
+//                                                                       const std::vector<PointType> &targetPoints) const {
+//
+//            RepresenterType::MeshType::Pointer centerLine = transformMesh(fittingParameters);
+//            RigidTransformType::Pointer rigidTransform = getTransformFromParameters(fittingParameters);
+//
+//            // transform all the points into model space and add them as constraint
+//
+//            PosteriorModelBuilderType::PointValueListType constraints;
+//
+//            for (std::vector<PointType>::const_iterator ptIt = targetPoints.begin(); ptIt != targetPoints.end(); ++ptIt) {
+//                long pointId = findClosestPoint(centerLine, *ptIt).second;
+//                PointType refPt = m_statisticalModel->GetRepresenter()->GetReference()->GetPoint(pointId);
+//                constraints.push_back(std::make_pair(refPt, rigidTransform->GetInverseTransform()->TransformPoint(*ptIt)));
+//            }
+//
+//            for (mhfitting::CorrespondencePoints::const_iterator cpIt = correspondencePoints.begin(); cpIt != correspondencePoints.end(); ++cpIt) {
+//                PointType refPt = m_statisticalModel->GetRepresenter()->GetReference()->GetPoint(cpIt->first);
+//                constraints.push_back(std::make_pair(refPt, rigidTransform->GetInverseTransform()->TransformPoint(cpIt->second)));
+//            }
+//
+//            statismo::VectorType newCoefficients = m_statisticalModel->ComputeCoefficientsForPointValues(constraints, 2.0);
+//
+//
+//            return mhfitting::MHFittingParameters::ModelParameters(newCoefficients);
+//
+//        }
+
 
         virtual mhfitting::MHFittingParameters::ModelParameters projectModelInstanceToTargetPoints(const mhfitting::MHFittingParameters &fittingParameters,
-                                                                       const mhfitting::CorrespondencePoints& correspondencePoints,
-                                                                       const std::vector<PointType> &targetPoints) const {
+                                                                                                   const mhfitting::CorrespondencePoints& correspondencePoints,
+                                                                                                   const std::vector<PointType> &targetPoints) const {
 
-            RepresenterType::MeshType::Pointer currentMesh = transformMesh(fittingParameters);
+
+            RepresenterType::MeshType::Pointer centerLine = transformCenterLine(fittingParameters);
             RigidTransformType::Pointer rigidTransform = getTransformFromParameters(fittingParameters);
 
             // transform all the points into model space and add them as constraint
 
             PosteriorModelBuilderType::PointValueListType constraints;
+            using mhfitting::MHFittingUtils;
 
-            for (std::vector<PointType>::const_iterator ptIt = targetPoints.begin(); ptIt != targetPoints.end(); ++ptIt) {
-                long pointId = findClosestPoint(currentMesh, *ptIt).second;
-                PointType refPt = m_statisticalModel->GetRepresenter()->GetReference()->GetPoint(pointId);
-                constraints.push_back(std::make_pair(refPt, rigidTransform->GetInverseTransform()->TransformPoint(*ptIt)));
+            // compute center
+            std::list<PointType> centerPointsTarget;
+            std::list<PointType> centerPointsModel;
+
+            MHFittingUtils::LineMapType lineMap = MHFittingUtils::getLineMap(targetPoints);
+            for (MHFittingUtils::LineMapType::const_iterator it = lineMap.begin(); it != lineMap.end(); ++it) {
+                std::vector<PointType> linePoints = it->second;
+                double centerX =0; double centerY = 0; double centerZ = 0;
+                for (std::vector<PointType>::const_iterator ptIt = linePoints.begin(); ptIt != linePoints.end(); ++ptIt) {
+                    centerX += ptIt->GetElement(0) / linePoints.size();
+                    centerY += ptIt->GetElement(1) / linePoints.size();
+                    centerZ += ptIt->GetElement(2) / linePoints.size();
+                }
+                PointType centerPoint;
+                centerPoint.SetElement(0, centerX); centerPoint.SetElement(1, centerY); centerPoint.SetElement(2, centerZ);
+                centerPointsTarget.push_back(centerPoint);
+
+                long pointId = findClosestPoint(centerLine, centerPoint).second;
+
+                PointType refPt = m_centerLineModel.GetStatisticalModel()->GetRepresenter()->GetReference()->GetPoint(pointId);
+                centerPointsModel.push_back(refPt);
+                constraints.push_back(std::make_pair(refPt, rigidTransform->GetInverseTransform()->TransformPoint(centerPoint)));
             }
 
-            for (mhfitting::CorrespondencePoints::const_iterator cpIt = correspondencePoints.begin(); cpIt != correspondencePoints.end(); ++cpIt) {
-                PointType refPt = m_statisticalModel->GetRepresenter()->GetReference()->GetPoint(cpIt->first);
-                constraints.push_back(std::make_pair(refPt, rigidTransform->GetInverseTransform()->TransformPoint(cpIt->second)));
-            }
 
-            statismo::VectorType newCoefficients = m_statisticalModel->ComputeCoefficientsForPointValues(constraints, 2.0);
 
+            mhfitting::UIObject& ui = mhfitting::UIObject::getInstance();
+      //      ui.ui.showPointCloud(ui.targetGroup, centerPointsTarget, "target center");
+    //            ui.ui.showPointCloud(ui.modelGroup, centerPointsModel, "model center");
+
+      //      ui.ui.showTriangleMesh(ui.targetGroup, m_centerLineModel.GetStatisticalModel()->GetRepresenter()->GetReference(), "centerline Ref");
+    //            ui.ui.showTriangleMesh(ui.targetGroup, centerLine, "centerline current");
+            statismo::VectorType newCoefficients = m_centerLineModel.GetStatisticalModel()->ComputeCoefficientsForPointValues(constraints, 1e-1);
 
             return mhfitting::MHFittingParameters::ModelParameters(newCoefficients);
 
         }
-
         virtual mhfitting::MHFittingParameters::RigidParameters alignModelInstanceToTargetPoints(
                 const mhfitting::MHFittingParameters &fittingParameters, const std::vector<PointType> &targetPoints) const {
 
@@ -274,8 +333,20 @@ namespace itk {
 
         RepresenterType::DatasetPointerType transformMesh(const mhfitting::MHFittingParameters& fittingParameters) const {
 
+            return transformMeshInternal(m_statisticalModel, fittingParameters);
+        }
+
+
+        RepresenterType::DatasetPointerType transformCenterLine(const mhfitting::MHFittingParameters& fittingParameters) const {
+
+          return transformMeshInternal(m_centerLineModel.GetStatisticalModel(), fittingParameters);
+
+        }
+
+        RepresenterType::DatasetPointerType transformMeshInternal(const StatisticalModelType* model, const mhfitting::MHFittingParameters& fittingParameters) const {
+
             typedef  RepresenterType::DatasetType MeshType ;
-            MeshType::Pointer   sampleShape = m_statisticalModel->DrawSample(fittingParameters.GetCoefficients().GetParameters());
+            MeshType::Pointer   sampleShape = model->DrawSample(fittingParameters.GetCoefficients().GetParameters());
 
 
             RigidTransformType::Pointer newRigidTransform = getTransformFromParameters(fittingParameters);
@@ -318,11 +389,11 @@ namespace itk {
             return VectorType(v.data(), v.rows());
         }
 
-
         ImageType::Pointer m_image;
         InterpolatorType::Pointer m_interpolator;
         PointType m_rotationCenter;
         const StatisticalModelType* m_statisticalModel;
+        mhfitting::CenterLineModel m_centerLineModel;
         mutable PointsLocatorType::Pointer m_ptLocator;
         mutable RepresenterType::MeshType::Pointer m_lastUsedMesh;
         mutable MeshAdapterType::PointNormalsContainerPointer m_normals;
@@ -446,6 +517,7 @@ namespace itk {
                   const CorrespondencePoints correspondencePoints,
                   const std::vector<PointType>& targetPoints,
                   ModelPointerType model,
+                  const mhfitting::CenterLineModel& centerLineModel,
                   SamplerPointerType sampler,
                   ConfigurationType configuration,
                   RigidTransformType* transform,
@@ -455,7 +527,7 @@ namespace itk {
             m_model = model;
             m_sampler = sampler; // need to hold it here, as otherwise it crashes.
             m_configuration = configuration;
-            m_meshOperations.reset(new itkMeshOperations(model->GetStatisticalModel()->GetstatismoImplObj(), targetImage, transform->GetCenter()));
+            m_meshOperations.reset(new itkMeshOperations(model->GetStatisticalModel()->GetstatismoImplObj(), centerLineModel, targetImage, transform->GetCenter()));
             m_preprocessedTargetImage = preprocessedTargetImage;
 
             m_bestMatchLogger.reset(new sampling::BestMatchLogger<mhfitting::MHFittingParameters>());

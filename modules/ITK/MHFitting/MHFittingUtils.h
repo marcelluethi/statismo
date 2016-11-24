@@ -14,10 +14,58 @@
 namespace mhfitting {
 
 
+    class UIObject {
+        static UIObject* instance;
+
+    public:
+
+        StatismoUI::StatismoUI ui;
+
+        StatismoUI::Group modelGroup;
+        StatismoUI::Group targetGroup;
+
+        static UIObject& getInstance() {
+            if (instance ==0 ) {
+                instance = new UIObject();
+            }
+            return *instance;
+
+        }
+
+
+        UIObject()
+        : modelGroup( ui.createGroup("model")),
+          targetGroup( ui.createGroup("target") )
+        {
+        }
+
+
+
+    };
+    UIObject* UIObject::instance = 0;
 
     class MHFittingUtils {
 
     public:
+        typedef std::map<float, std::vector<PointType> > LineMapType;
+
+        static LineMapType getLineMap(const std::vector<PointType>& points) {
+
+            LineMapType lineMap;
+            // TODO HACK, we separate the points into lines, using the z coordinates
+            for (unsigned i = 0; i < points.size(); ++i) {
+                double zComponent = round(points[i].GetElement(2) / 10) * 10; // TODO two adjacent lines are merged
+
+                if (lineMap.find(zComponent) == lineMap.end()) {
+                    lineMap.insert(std::make_pair(zComponent, std::vector<PointType>()));
+                }
+                lineMap[zComponent].push_back(points[i]);
+
+            }
+
+
+            return lineMap;
+        }
 
         struct ProcrustesResult {
             statismo::MatrixTypeDoublePrecision rotationMatrix;

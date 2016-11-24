@@ -57,7 +57,6 @@ namespace mhfitting {
             RotationCenter m_rotationCenter;
         };
 
-
         MHFittingParameters() :
                 m_coefficients(ModelParameters(statismo::VectorType::Zero(200))),
                 m_rotationParameters(RotationParameters(statismo::VectorType::Zero(3))),

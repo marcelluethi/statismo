@@ -369,11 +369,10 @@ namespace mhfitting {
 
             statismo::VectorType newModelParameters = currentSample.GetCoefficients().GetParameters() + (newProposal.GetParameters() - currentSample.GetCoefficients().GetParameters()) * m_stepLength;
 
-            proposal = MHFittingParameters(newModelParameters,
+            proposal = MHFittingParameters(mhfitting::MHFittingParameters::ModelParameters(newModelParameters),
                                            currentSample.GetRotationParameters(),
                                            currentSample.GetTranslationParameters(),
                                            currentSample.GetRotationCenter());
-
         }
 
 
@@ -387,6 +386,7 @@ namespace mhfitting {
         LinePoints m_linePoints;
         double m_stepLength;
     };
+
 
 
 

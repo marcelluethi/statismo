@@ -11,6 +11,7 @@
 #include "MeshOperations.h"
 #include "Sampling/DistributionEvaluator.h"
 #include "Types.h"
+#include "MHFittingUtils.h"
 
 namespace mhfitting {
 
@@ -226,16 +227,8 @@ namespace mhfitting {
                 m_noiseVar(noisestddev * noisestddev)
         {
 
-            // TODO HACK, we separate the points into lines, using the z coordinates
-            for (unsigned i = 0 ; i < targetPoints.size(); ++i ) {
-                statismo::VectorType pt = representer->PointToVector(targetPoints[i]);
+            m_lineMap = MHFittingUtils::getLineMap(targetPoints);
 
-                if (m_lineMap.find(round(pt(2))) == m_lineMap.end()) {
-                    m_lineMap.insert(std::make_pair(round(pt(2)), std::vector<PointType>()));
-                }
-                m_lineMap[round(pt(2))].push_back(targetPoints[i]);
-
-            }
             std::cout << "number of lines " << m_lineMap.size();
             statismo::VectorType mean = statismo::VectorType::Zero(1);
             mean(0) = 0.0;
@@ -266,6 +259,7 @@ namespace mhfitting {
 
 
         }
+
 
         virtual double evalSample(const MHFittingParameters& currentSample) {
 
