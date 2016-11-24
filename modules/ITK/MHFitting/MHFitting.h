@@ -664,10 +664,10 @@ namespace mhfitting {
                                                                                      asmodel->GetStatisticalModel());
 
                 std::vector<DistributionEvaluator<MHFittingParameters> *> huEvaluatorList;
-                //  huEvaluatorList.push_back(huEvaluator);
+                  huEvaluatorList.push_back(huEvaluator);
                 //huEvaluatorList.push_back(modelPriorEvaluator);
 //              huEvaluatorList.push_back(pointEval);
-                huEvaluatorList.push_back(lineEval);
+                //huEvaluatorList.push_back(lineEval);
 
 
                 QuietLogger <MHFittingParameters> *ql = new QuietLogger<MHFittingParameters>();
@@ -681,9 +681,9 @@ namespace mhfitting {
 
 
                 std::vector<DistributionEvaluator<MHFittingParameters> *> lmAndHuEvaluatorList;
-                //lmAndHuEvaluatorList.push_back(pointEval);
-                //lmAndHuEvaluatorList.push_back(lineEval);
-                lmAndHuEvaluatorList.push_back(huEvaluator);
+                lmAndHuEvaluatorList.push_back(pointEval);
+                lmAndHuEvaluatorList.push_back(lineEval);
+                //lmAndHuEvaluatorList.push_back(huEvaluator);
                 lmAndHuEvaluatorList.push_back(modelPriorEvaluator);
 
                 //InLungLogger <T>* loggerFinalChain = new InLungLogger<T>(representer, meshOperations, "final chain");

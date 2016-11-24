@@ -3,7 +3,7 @@
  *
  * Author: Christoph Langguth (christoph.langguth@unibas.ch)
  *
- * Copyright (c) 2011-2015 University of Basel
+ * Copyright (c) 2011-201 University of Basel
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without

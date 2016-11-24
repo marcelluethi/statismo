@@ -198,7 +198,7 @@ FittingResultType::Pointer fitPose( StatismoUI::StatismoUI& ui,
 
     vnl_vector<float> lastCoeffs;
     itk::OptimizerParameters<float> lastTransformParameters;
-    for (int i =1; i <= 500; ++i) {
+    for (int i =1; i <= 200; ++i) {
         FittingResultType::Pointer result;
 
         fittingStep->NextSample();
@@ -251,7 +251,7 @@ FittingResultType::Pointer fitPoseAndShape( StatismoUI::StatismoUI& ui,
 
     vnl_vector<float> lastCoeffs;
     itk::OptimizerParameters<float> lastTransformParameters;
-    for (int i =1; i <= 500; ++i) {
+    for (int i =1; i <= 400; ++i) {
         FittingResultType::Pointer result;
 
         fittingStep->NextSample();
@@ -279,29 +279,29 @@ FittingResultType::Pointer fitPoseAndShape( StatismoUI::StatismoUI& ui,
 
 FittingResultType::Pointer fitWithHU( StatismoUI::StatismoUI& ui,
                                       std::ofstream& logStream,
-                                    StatismoUI::ShapeModelTransformationView& ssmTransformationView,
-                                    ImageType* image,
-                                    PreprocessedImageType* preprocessedImage,
-                                    const FittingStepType::CorrespondencePoints& correspondingPoints,
-                                    const std::vector<PointType>& linePoints,
-                                    ActiveShapeModelType* model,
+                                      StatismoUI::ShapeModelTransformationView& ssmTransformationView,
+                                      ImageType* image,
+                                      PreprocessedImageType* preprocessedImage,
+                                      const FittingStepType::CorrespondencePoints& correspondingPoints,
+                                      const std::vector<PointType>& linePoints,
+                                      ActiveShapeModelType* model,
                                       const mhfitting::CenterLineModel centerLineModel,
-                                    SamplerType* fitSampler,
-                                    mhfitting::MHFittingConfiguration  configuration,
-                                    itk::VersorRigid3DTransform<float>* transform,
-                                    vnl_vector<float> coeffs) {
+                                      SamplerType* fitSampler,
+                                      mhfitting::MHFittingConfiguration  configuration,
+                                      itk::VersorRigid3DTransform<float>* transform,
+                                      statismo::VectorType coeffs) {
 
     itk::VersorRigid3DTransform<float>::Pointer currentTransform = transform->Clone();
 
     FittingStepType::Pointer fittingStepFlexibleShapeAndHU = FittingStepType::New();
-    fittingStepFlexibleShapeAndHU->init(image, preprocessedImage, correspondingPoints, linePoints, model, centerLineModel, FittingStepType::SamplerPointerType(fitSampler), configuration, transform, fromVnlVector(coeffs), logStream);
-    fittingStepFlexibleShapeAndHU->SetChainToLmAndHU(correspondingPoints, linePoints, transform, fromVnlVector(coeffs));
+    fittingStepFlexibleShapeAndHU->init(image, preprocessedImage, correspondingPoints, linePoints, model, centerLineModel, FittingStepType::SamplerPointerType(fitSampler), configuration, transform, coeffs, logStream);
+    fittingStepFlexibleShapeAndHU->SetChainToLmAndHU(correspondingPoints, linePoints, transform, coeffs);
 
 
     vnl_vector<float> lastCoeffs;
     itk::OptimizerParameters<float> lastTransformParameters;
 
-    for (int i =1; i <= 2000; ++i) {
+    for (int i =1; i <= 500; ++i) {
 
         std::cout << "iteration: " << i << std::endl;
         FittingResultType::Pointer result;
@@ -422,10 +422,10 @@ int main(int argc, char *argv[]) {
     //std::string flexibleModelName("/home/luetma00/workspaces/projects/varian/data/asm-pca-all-data-localized.h5");
     std::string pcaModelName("/home/luetma00/workspaces/projects/varian/data/asm-pca-all-data-localized-mesh.h5");
     std::string centerlineModelName("/home/luetma00/workspaces/projects/varian/data/asm-pca-all-data-localized-line.h5");
-    std::string imageFilename("/export/skulls/data/shapes/esophagus/varian/raw/normalized/volume-ct/varian-0001.nii");
-    std::string targetLinePointsFilename("/tmp/varian-0001-line-lms.csv");
+    std::string imageFilename("/export/skulls/data/shapes/esophagus/varian/raw/normalized/volume-ct/varian-0021.nii");
+    std::string targetLinePointsFilename("/tmp/varian-0021-line-lms.csv");
     std::string referenceLandmarkPointsFilename("/tmp/ref-lms.csv");
-    std::string targetLandmarkPointsFilename("/tmp/varian-0001-lm.csv");
+    std::string targetLandmarkPointsFilename("/tmp/varian-0021-lms.csv");
     std::string loggerFilename("/tmp/log.csv");
 
 
@@ -473,20 +473,20 @@ int main(int argc, char *argv[]) {
 
     // computing the posterior
 
-//    vnl_vector<float> coeffsPosteriorModel(pcaAsmModel->GetStatisticalModel()->GetNumberOfPrincipalComponents());
-//    computePosteriorModel(image, preprocessedImage, correspondingPoints, linePoints, pcaAsmModel, fitPoseAndShapeResult->GetCoefficients(), flexibleModel, fitSampler, mhFitConfig, fitPoseAndShapeResult->GetRigidTransformation(), flexibleModel, coeffsPosteriorModel, logStream);
-//
-//
-//    StatismoUI::Group modelgroupPosterior = ui.createGroup("poster");
-//    StatismoUI::ShapeModelView shapeModelViewPosterior = ui.showStatisticalShapeModel(modelgroupPosterior, flexibleModel->GetStatisticalModel(), "a model");
-//    StatismoUI::ShapeModelTransformationView ssmTransformationViewPosterior = shapeModelViewPosterior.GetShapeModelTransformationView();
-//    ui.removeShapeModel(ssmView);
-//
-//
-//    // fitting with intensity
-//    FittingResultType::Pointer fitHUResult = fitWithHU(ui, logStream, ssmTransformationViewPosterior, image, preprocessedImage, correspondingPoints, linePoints, flexibleModel, fitSampler, mhFitConfig, fitPoseResult->GetRigidTransformation(), coeffsPosteriorModel);
-//
-//    ui.showTriangleMesh(targetgroup, fitHUResult->GetMesh(), "final Result");
+    //vnl_vector<float> coeffsPosteriorModel(pcaAsmModel->GetStatisticalModel()->GetNumberOfPrincipalComponents());
+    //computePosteriorModel(image, preprocessedImage, correspondingPoints, linePoints, pcaAsmModel, fitPoseAndShapeResult->GetCoefficients(), pcaAsmModel, centerLineModel, fitSampler, mhFitConfig, fitPoseAndShapeResult->GetRigidTransformation(), pcaAsmModel, coeffsPosteriorModel, logStream);
+
+
+    StatismoUI::Group modelgroupPosterior = ui.createGroup("poster");
+    StatismoUI::ShapeModelView shapeModelViewPosterior = ui.showStatisticalShapeModel(modelgroupPosterior, pcaAsmModel->GetStatisticalModel(), "a model");
+    StatismoUI::ShapeModelTransformationView ssmTransformationViewPosterior = shapeModelViewPosterior.GetShapeModelTransformationView();
+    ui.removeShapeModel(ssmView);
+
+
+    // fitting with intensity
+    FittingResultType::Pointer fitHUResult = fitWithHU(ui, logStream, ssmTransformationViewPosterior, image, preprocessedImage, correspondingPoints, linePoints, pcaAsmModel, centerLineModel, fitSampler, mhFitConfig, fitPoseAndShapeResult->GetRigidTransformation(), fromVnlVector(fitPoseAndShapeResult->GetCoefficients()));
+
+    ui.showTriangleMesh(targetgroup, fitHUResult->GetMesh(), "final Result");
 
 
 
