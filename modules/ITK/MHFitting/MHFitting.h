@@ -572,7 +572,7 @@ namespace mhfitting {
                 RandomShapeProposal *randomShapeProposal = new RandomShapeProposal(
                         asmodel->GetStatisticalModel()->GetNumberOfPrincipalComponents(), rGen);
                 RigidICPProposal<MeshType>* rigidICPProposal = new RigidICPProposal<MeshType>(meshOperations, correspondencePoints, targetPoints, 1.0);
-                ShapeICPProposal<MeshType>* shapeICPProposal = new ShapeICPProposal<MeshType>(meshOperations, correspondencePoints, targetPoints, 0.1);
+                ShapeICPProposal<MeshType>* shapeICPProposal = new ShapeICPProposal<MeshType>(meshOperations, correspondencePoints, targetPoints, 0.5);
 
                 std::vector<typename RandomProposal<MHFittingParameters>::GeneratorPair> poseAndShapeMixtureVec;
                 poseAndShapeMixtureVec.push_back(std::make_pair(randomPoseProposal, 0.1));
@@ -617,39 +617,25 @@ namespace mhfitting {
 
                 // basics
                 RandomGenerator *rGen = new RandomGenerator(42);
-                MHFittingParameters init = MHFittingParameters(initialParameters.GetCoefficients(),
-                                                               initialParameters.GetRotationParameters(),
-                                                               initialParameters.GetTranslationParameters(),
-                                                               initialParameters.GetRotationCenter());
-
-                RandomShapeUpdate *shapeUpdateRough = new RandomShapeUpdate(0.2, numPCAComponents, rGen);
-                RandomShapeUpdate *shapeUpdateFine = new RandomShapeUpdate(0.1, numPCAComponents, rGen);
-                RandomShapeUpdate *shapeUpdateFinest = new RandomShapeUpdate(0.025, numPCAComponents, rGen);
-                RotationUpdate *rotUpdateX = new RotationUpdate(0, 0.01, rGen);
-                RotationUpdate *rotUpdateY = new RotationUpdate(1, 0.01, rGen);
-                RotationUpdate *rotUpdateZ = new RotationUpdate(2, 0.01, rGen);
-
-                vector<typename RandomProposal<MHFittingParameters>::GeneratorPair> rotUpdateVec(3);
-                rotUpdateVec[0] = pair<ProposalGenerator<MHFittingParameters> *, double>(rotUpdateX, 0.8);
-                rotUpdateVec[1] = pair<ProposalGenerator<MHFittingParameters> *, double>(rotUpdateY, 0.1);
-                rotUpdateVec[2] = pair<ProposalGenerator<MHFittingParameters> *, double>(rotUpdateZ, 0.1);
-                RandomProposal<MHFittingParameters> *rotUpdate = new RandomProposal<MHFittingParameters>(rotUpdateVec,
-                                                                                                         rGen);
 
 
-                vector<typename RandomProposal<MHFittingParameters>::GeneratorPair> gaussMixtureProposalVector(4);
-                gaussMixtureProposalVector[0] = pair<ProposalGenerator<MHFittingParameters> *, double>(shapeUpdateRough,
-                                                                                                       0.1);
-                gaussMixtureProposalVector[1] = pair<ProposalGenerator<MHFittingParameters> *, double>(shapeUpdateFine,
-                                                                                                       0.2);
-                gaussMixtureProposalVector[2] = pair<ProposalGenerator<MHFittingParameters> *, double>(
-                        shapeUpdateFinest,
-                        0.4);
-                gaussMixtureProposalVector[3] = pair<ProposalGenerator<MHFittingParameters> *, double>(rotUpdate, 0.2);
+                RandomPoseProposal *randomPoseProposal = new RandomPoseProposal(rGen);
+                RandomShapeProposal *randomShapeProposal = new RandomShapeProposal(
+                        asmodel->GetStatisticalModel()->GetNumberOfPrincipalComponents(), rGen);
+
+                RigidICPProposal<MeshType>* rigidICPProposal = new RigidICPProposal<MeshType>(meshOperations, correspondencePoints, targetPoints, 1.0);
+                ShapeICPProposal<MeshType>* shapeICPProposal = new ShapeICPProposal<MeshType>(meshOperations, correspondencePoints, targetPoints, 0.1);
+
+                std::vector<typename RandomProposal<MHFittingParameters>::GeneratorPair> poseAndShapeMixtureVec;
+                poseAndShapeMixtureVec.push_back(std::make_pair(randomPoseProposal, 0.1));
+                poseAndShapeMixtureVec.push_back(std::make_pair(randomShapeProposal, 0.7));
+                poseAndShapeMixtureVec.push_back(std::make_pair(shapeICPProposal, 0.1));
+                poseAndShapeMixtureVec.push_back(std::make_pair(rigidICPProposal, 0.1));
+                RandomProposal<MHFittingParameters> *poseAndShapeProposal = new RandomProposal<MHFittingParameters>(
+                        poseAndShapeMixtureVec, rGen);
 
 
-                RandomProposal<MHFittingParameters> *gaussMixtureProposal = new RandomProposal<MHFittingParameters>(
-                        gaussMixtureProposalVector, rGen);
+                ModelPriorEvaluator<PointType> *modelPriorEvaluator = new ModelPriorEvaluator<PointType>();
 
                 Gaussian3DPositionDifferenceEvaluator<MeshType> *diffEval = new Gaussian3DPositionDifferenceEvaluator<MeshType>(
                         asmodel->GetRepresenter(), 1.0);
@@ -658,38 +644,34 @@ namespace mhfitting {
                 LineEvaluator<T> *lineEval = new LineEvaluator<T>(representer, meshOperations, targetPoints, asmodel,
                                                                   0.1);
 
-                ModelPriorEvaluator<PointType> *modelPriorEvaluator = new ModelPriorEvaluator<PointType>();
 
-                InLungOrBoneEvaluator<T> *huEvaluator = new InLungOrBoneEvaluator<T>(representer, meshOperations,
-                                                                                     asmodel->GetStatisticalModel());
 
-                std::vector<DistributionEvaluator<MHFittingParameters> *> huEvaluatorList;
-                  huEvaluatorList.push_back(huEvaluator);
-                //huEvaluatorList.push_back(modelPriorEvaluator);
-//              huEvaluatorList.push_back(pointEval);
-                //huEvaluatorList.push_back(lineEval);
-
+                std::vector<DistributionEvaluator<MHFittingParameters> *> annotationEvaluatorList;
+                annotationEvaluatorList.push_back(modelPriorEvaluator);
+                annotationEvaluatorList.push_back(pointEval);
+                annotationEvaluatorList.push_back(lineEval);
 
                 QuietLogger <MHFittingParameters> *ql = new QuietLogger<MHFittingParameters>();
                 InLungLogger<T> *loggerFilterChain = new InLungLogger<T>(logger, representer, meshOperations,
                                                                          "filter chain");
-                MarkovChain <MHFittingParameters> *huChain = new MetropolisHastings<MHFittingParameters>(
-                        gaussMixtureProposal, new ProductEvaluator<MHFittingParameters>(huEvaluatorList), ql, init,
+                MarkovChain <MHFittingParameters> *annotationChain = new MetropolisHastings<MHFittingParameters>(
+                        poseAndShapeProposal, new ProductEvaluator<MHFittingParameters>(annotationEvaluatorList), ql, initialParameters,
                         rGen);
-                MarkovChainProposal <MHFittingParameters> *huChainProposal = new MarkovChainProposal<MHFittingParameters>(
-                        huChain, 1, true);
+                MarkovChainProposal <MHFittingParameters> *annotationChainProposal = new MarkovChainProposal<MHFittingParameters>(
+                        annotationChain, 1, true);
+
+
+                InLungOrBoneEvaluator<T> *huEvaluator = new InLungOrBoneEvaluator<T>(representer, meshOperations,
+                                                                                     asmodel->GetStatisticalModel());
 
 
                 std::vector<DistributionEvaluator<MHFittingParameters> *> lmAndHuEvaluatorList;
-                lmAndHuEvaluatorList.push_back(pointEval);
-                lmAndHuEvaluatorList.push_back(lineEval);
-                //lmAndHuEvaluatorList.push_back(huEvaluator);
-                lmAndHuEvaluatorList.push_back(modelPriorEvaluator);
+                lmAndHuEvaluatorList.push_back(huEvaluator);
 
                 //InLungLogger <T>* loggerFinalChain = new InLungLogger<T>(representer, meshOperations, "final chain");
                 MarkovChain <MHFittingParameters> *lmAndHuChain = new MetropolisHastings<MHFittingParameters>(
-                        huChainProposal, new ProductEvaluator<MHFittingParameters>(lmAndHuEvaluatorList),
-                        loggerFilterChain, init, rGen);
+                        annotationChainProposal, new ProductEvaluator<MHFittingParameters>(lmAndHuEvaluatorList),
+                        loggerFilterChain, initialParameters, rGen);
                 return lmAndHuChain;
             }
 
